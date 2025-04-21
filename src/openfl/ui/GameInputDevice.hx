@@ -135,10 +135,10 @@ import lime.ui.Gamepad;
 	#end
 
 	// Rumble
-	public function rumble(duration:Int, largeStrength:Float, smallStrength:Float):Void
+	public function rumble(lowFrequencyRumble:Float, highFrequencyRumble:Float, duration:Int):Void
 	{
 		#if lime
-		if (__gamepad != null) __gamepad.rumble(duration, largeStrength, smallStrength);
+		if (__gamepad != null) __gamepad.rumble(lowFrequencyRumble, highFrequencyRumble, duration);
 		#end
 	}
 }
