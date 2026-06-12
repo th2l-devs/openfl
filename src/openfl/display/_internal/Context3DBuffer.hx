@@ -81,7 +81,22 @@ class Context3DBuffer
 			vertexBuffer = context3D.createVertexBuffer(vertexCount, dataPerVertex, DYNAMIC_DRAW);
 		}
 
-		vertexBuffer.uploadFromTypedArray(vertexBufferData);
+		// The backing array is high-watermark sized and never shrinks, so upload
+		// only the range used by the current element count
+		var usedLength = switch (elementType)
+		{
+			case QUADS: elementCount * 4 * dataPerVertex;
+			case TRIANGLES, TRIANGLE_INDICES: elementCount * 3 * dataPerVertex;
+		}
+
+		if (usedLength > 0 && usedLength < vertexBufferData.length)
+		{
+			vertexBuffer.uploadFromTypedArray(vertexBufferData.subarray(0, usedLength));
+		}
+		else
+		{
+			vertexBuffer.uploadFromTypedArray(vertexBufferData);
+		}
 	}
 
 	public function resize(elementCount:Int, dataPerVertex:Int = -1):Void
@@ -124,8 +139,13 @@ class Context3DBuffer
 		}
 		else if (vertexLength > vertexBufferData.length)
 		{
+			// Grow with headroom so a frame with slightly more elements than any
+			// previous frame doesn't reallocate and copy the entire buffer again
+			var newLength = (vertexBufferData.length * 3) >> 1;
+			if (newLength < vertexLength) newLength = vertexLength;
+
 			var cacheBufferData = vertexBufferData;
-			vertexBufferData = new Float32Array(vertexLength);
+			vertexBufferData = new Float32Array(newLength);
 			vertexBufferData.set(cacheBufferData);
 		}
 		#end

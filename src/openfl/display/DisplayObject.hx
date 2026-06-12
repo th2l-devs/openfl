@@ -211,6 +211,7 @@ class DisplayObject extends EventDispatcher implements IBitmapDrawable #if (open
 
 	@:noCompletion private static var __tempStack:ObjectPool<Vector<DisplayObject>> = new ObjectPool<Vector<DisplayObject>>(function() return
 		new Vector<DisplayObject>(), function(stack) stack.length = 0);
+	@:noCompletion private static var __tempUpdateList:Array<DisplayObject> = [];
 
 	#if false
 	/**
@@ -1668,29 +1669,32 @@ class DisplayObject extends EventDispatcher implements IBitmapDrawable #if (open
 
 		if (transformDirty)
 		{
-			var list:Array<DisplayObject> = [];
-			var current = this;
-
 			if (parent == null)
 			{
 				__update(true, false);
 			}
 			else
 			{
+				// Reuse a shared list; this runs for every hit test with a dirty
+				// transform, so a fresh array here is constant GC churn
+				var list = __tempUpdateList;
+				var count = 0;
+				var current = this;
+
 				while (current != stage)
 				{
-					list.push(current);
+					list[count++] = current;
 					current = current.parent;
 
 					if (current == null) break;
 				}
-			}
 
-			var i = list.length;
-			while (--i >= 0)
-			{
-				current = list[i];
-				current.__update(true, false);
+				var i = count;
+				while (--i >= 0)
+				{
+					list[i].__update(true, false);
+					list[i] = null;
+				}
 			}
 		}
 
