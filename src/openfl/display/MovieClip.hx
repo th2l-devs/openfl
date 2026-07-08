@@ -59,7 +59,7 @@ class MovieClip extends Sprite #if (openfl_dynamic && haxe_ver < "4.0.0") implem
 		timeline of the MovieClip instance. If the movie clip has multiple scenes,
 		this value is the frame number in the current scene.
 	**/
-	public var currentFrame(get, never):Float;
+	public var currentFrame(get, never):Int;
 
 	/**
 		The label at the current frame in the timeline of the MovieClip instance.
@@ -486,7 +486,7 @@ class MovieClip extends Sprite #if (openfl_dynamic && haxe_ver < "4.0.0") implem
 		return value;
 	}
 
-	@:noCompletion private function get_currentFrame():Float
+	@:noCompletion private function get_currentFrame():Int
 	{
 		if (__timeline != null)
 		{
@@ -494,7 +494,7 @@ class MovieClip extends Sprite #if (openfl_dynamic && haxe_ver < "4.0.0") implem
 		}
 		else
 		{
-			return 1.0;
+			return 1;
 		}
 	}
 
