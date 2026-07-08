@@ -303,7 +303,9 @@ import lime.utils.Int16Array;
 		if (!__isValid) return 0;
 
 		#if lime
-		return __audioSource.currentTime + __audioSource.offset;
+		// Float-precision path: `currentTime` (Int ms) quantizes, which is audible drift for
+		// rhythm-game seeking. `currentTimePrecise` is sample-accurate on the native backend.
+		return __audioSource.currentTimePrecise + __audioSource.offset;
 		#else
 		return 0;
 		#end
@@ -314,7 +316,7 @@ import lime.utils.Int16Array;
 		if (!__isValid) return 0;
 
 		#if lime
-		__audioSource.currentTime = Std.int(value) - __audioSource.offset;
+		__audioSource.currentTimePrecise = value - __audioSource.offset;
 		#end
 		return value;
 	}
