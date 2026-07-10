@@ -181,6 +181,22 @@ class TextureBase extends EventDispatcher
 		}
 	}
 
+	/**
+		Generates the full mipmap chain for this texture on the GPU (`glGenerateMipmap`), enabling
+		`MIPLINEAR`/`MIPNEAREST` sampler states (trilinear filtering) for it. Call after uploading
+		mip level 0 (e.g. `uploadFromBitmapData`), and again after any re-upload. Without this, a
+		mip-filtered sampler reads an incomplete texture (renders black), so only enable mip
+		filtering on textures that had their chain generated. 2D textures only; no-op if disposed.
+	**/
+	public function generateMipmaps():Void
+	{
+		if (__textureID == null || __textureTarget != __context.gl.TEXTURE_2D) return;
+
+		__context.__bindGLTexture2D(__textureID);
+		__context.gl.generateMipmap(__textureTarget);
+		__context.__bindGLTexture2D(null);
+	}
+
 	@SuppressWarnings("checkstyle:Dynamic")
 	@:noCompletion private function __getGLFramebuffer(enableDepthAndStencil:Bool, antiAlias:Int, surfaceSelector:Int):GLFramebuffer
 	{
