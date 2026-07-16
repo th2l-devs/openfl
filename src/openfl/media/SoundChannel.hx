@@ -5,6 +5,7 @@ import openfl.events.Event;
 import openfl.events.EventDispatcher;
 #if lime
 import lime.media.AudioSource;
+import lime.utils.UInt8Array;
 #end
 #if (js && html5)
 import openfl.events.SampleDataEvent;
@@ -47,7 +48,7 @@ import lime.utils.Int16Array;
 		The current amplitude (volume) of the left channel, from 0 (silent) to 1
 		(full amplitude).
 	**/
-	public var leftPeak(default, null):Float;
+	public var leftPeak(get, never):Float;
 
 	/**
 		When the sound is playing, the `position` property indicates in
@@ -68,7 +69,7 @@ import lime.utils.Int16Array;
 		The current amplitude (volume) of the right channel, from 0 (silent) to 1
 		(full amplitude).
 	**/
-	public var rightPeak(default, null):Float;
+	public var rightPeak(get, never):Float;
 
 	/**
 		The SoundTransform object assigned to the sound channel. A SoundTransform
@@ -79,6 +80,9 @@ import lime.utils.Int16Array;
 
 	@:noCompletion private var __sound:Sound;
 	@:noCompletion private var __isValid:Bool;
+	@:noCompletion private var __leftPeak:Float;
+	@:noCompletion private var __peakTime:Float;
+	@:noCompletion private var __rightPeak:Float;
 	@:noCompletion private var __soundTransform:SoundTransform;
 	#if lime
 	@:noCompletion private var __audioSource:AudioSource;
@@ -104,6 +108,12 @@ import lime.utils.Int16Array;
 	@:noCompletion private static function __init__()
 	{
 		untyped Object.defineProperties(SoundChannel.prototype, {
+			"leftPeak": {
+				get: untyped #if haxe4 js.Syntax.code #else __js__ #end ("function () { return this.get_leftPeak (); }")
+			},
+			"rightPeak": {
+				get: untyped #if haxe4 js.Syntax.code #else __js__ #end ("function () { return this.get_rightPeak (); }")
+			},
 			"position": {
 				get: untyped #if haxe4 js.Syntax.code #else __js__ #end ("function () { return this.get_position (); }"),
 				set: untyped #if haxe4 js.Syntax.code #else __js__ #end ("function (v) { return this.set_position (v); }")
@@ -122,8 +132,9 @@ import lime.utils.Int16Array;
 
 		__sound = sound;
 
-		leftPeak = 1;
-		rightPeak = 1;
+		__leftPeak = 0;
+		__rightPeak = 0;
+		__peakTime = -1;
 
 		if (soundTransform != null)
 		{
@@ -281,6 +292,101 @@ import lime.utils.Int16Array;
 		this.soundTransform = soundTransform;
 	}
 
+	/**
+		Approximates the output level of each channel by sampling the decoded waveform
+		around the current playback position.
+
+		Flash meters its mixed output directly, but OpenAL exposes no equivalent, so the
+		level is read back from the source buffer instead. Streamed audio holds no PCM in
+		memory and therefore reports no level.
+	**/
+	@:noCompletion private function __updatePeaks():Void
+	{
+		#if lime
+		if (!__isValid || __sound == null)
+		{
+			__leftPeak = 0;
+			__rightPeak = 0;
+			return;
+		}
+
+		var buffer = __sound.__buffer;
+		if (buffer == null || buffer.data == null || buffer.data.length == 0) return;
+
+		var sampleRate = buffer.sampleRate;
+		var channels = buffer.channels;
+		var bitsPerSample = buffer.bitsPerSample;
+
+		if (sampleRate <= 0 || channels <= 0) return;
+		if (bitsPerSample != 8 && bitsPerSample != 16) return;
+
+		// Both peaks are read once per frame, so only measure when playback has moved on
+		var time = position;
+		if (time == __peakTime) return;
+		__peakTime = time;
+
+		var data = buffer.data;
+		var bytesPerSample = bitsPerSample >> 3;
+		var frameSize = bytesPerSample * channels;
+		var totalFrames = Std.int(data.length / frameSize);
+
+		var frame = Std.int((time / 1000) * sampleRate);
+		if (frame < 0) frame = 0;
+
+		// Roughly one display frame of audio: long enough to catch a transient, short
+		// enough to still follow the beat
+		var window = Std.int(sampleRate / 60);
+		if (frame + window > totalFrames) window = totalFrames - frame;
+
+		if (window <= 0)
+		{
+			__leftPeak = 0;
+			__rightPeak = 0;
+			return;
+		}
+
+		var left = 0.0;
+		var right = 0.0;
+		var offset = frame * frameSize;
+
+		for (i in 0...window)
+		{
+			var sampleOffset = offset + (i * frameSize);
+
+			var l = __readSample(data, sampleOffset, bitsPerSample);
+			var r = (channels > 1) ? __readSample(data, sampleOffset + bytesPerSample, bitsPerSample) : l;
+
+			if (l < 0) l = -l;
+			if (r < 0) r = -r;
+
+			if (l > left) left = l;
+			if (r > right) right = r;
+		}
+
+		// Flash reports the level after volume is applied, which is what callers such as
+		// FlxSound expect when they divide it back out
+		var volume = (__soundTransform != null) ? __soundTransform.volume : 1;
+
+		__leftPeak = left * volume;
+		__rightPeak = right * volume;
+		#end
+	}
+
+	#if lime
+	@:noCompletion private static function __readSample(data:UInt8Array, offset:Int, bitsPerSample:Int):Float
+	{
+		if (bitsPerSample == 8)
+		{
+			// 8-bit PCM is unsigned and centered on 128
+			return (data[offset] - 128) / 128.0;
+		}
+
+		var value = data[offset] | (data[offset + 1] << 8);
+		if (value >= 32768) value -= 65536;
+		return value / 32768.0;
+	}
+	#end
+
 	@:noCompletion private function __initAudioSource(audioSource:#if lime AudioSource #else Dynamic #end):Void
 	{
 		#if lime
@@ -298,6 +404,18 @@ import lime.utils.Int16Array;
 	}
 
 	// Get & Set Methods
+	@:noCompletion private function get_leftPeak():Float
+	{
+		__updatePeaks();
+		return __leftPeak;
+	}
+
+	@:noCompletion private function get_rightPeak():Float
+	{
+		__updatePeaks();
+		return __rightPeak;
+	}
+
 	@:noCompletion private function get_position():Float
 	{
 		if (!__isValid) return 0;
