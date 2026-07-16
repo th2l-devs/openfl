@@ -11,6 +11,7 @@ import openfl.utils._internal.Float32Array;
 import openfl.utils._internal.Log;
 import openfl.display3D.Context3D;
 import openfl.display3D.Program3D;
+import openfl.errors.ShaderError;
 import openfl.utils.ByteArray;
 
 /**
@@ -316,7 +317,7 @@ class Shader
 	// }
 	// return shader;
 	// }
-	@:noCompletion private function __createGLShader(source:String, type:Int):GLShader
+	@:noCompletion private function __createGLShader(source:String, type:Int, lineOffset:Int = 0):GLShader
 	{
 		var gl = __context.gl;
 
@@ -327,25 +328,30 @@ class Shader
 		var hasInfoLog = shaderInfoLog != null && StringTools.trim(shaderInfoLog) != "";
 		var compileStatus = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
 
-		if (hasInfoLog || compileStatus == 0)
+		if (compileStatus == 0)
 		{
-			var message = (compileStatus == 0) ? "Error" : "Info";
-			message += (type == gl.VERTEX_SHADER) ? " compiling vertex shader" : " compiling fragment shader";
+			var error = new ShaderError((type == gl.VERTEX_SHADER) ? "vertex" : "fragment", shaderInfoLog, source, lineOffset);
+
+			if (Log.throwErrors) throw error;
+			Log.println(error.message);
+		}
+		else if (hasInfoLog)
+		{
+			var message = (type == gl.VERTEX_SHADER) ? "Info compiling vertex shader" : "Info compiling fragment shader";
 			message += "\n" + shaderInfoLog;
 			message += "\n" + source;
-			if (compileStatus == 0) Log.error(message);
-			else if (hasInfoLog) Log.debug(message);
+			Log.debug(message);
 		}
 
 		return shader;
 	}
 
-	@:noCompletion private function __createGLProgram(vertexSource:String, fragmentSource:String):GLProgram
+	@:noCompletion private function __createGLProgram(vertexSource:String, fragmentSource:String, lineOffset:Int = 0):GLProgram
 	{
 		var gl = __context.gl;
 
-		var vertexShader = __createGLShader(vertexSource, gl.VERTEX_SHADER);
-		var fragmentShader = __createGLShader(fragmentSource, gl.FRAGMENT_SHADER);
+		var vertexShader = __createGLShader(vertexSource, gl.VERTEX_SHADER, lineOffset);
+		var fragmentShader = __createGLShader(fragmentSource, gl.FRAGMENT_SHADER, lineOffset);
 
 		var program = gl.createProgram();
 
@@ -365,9 +371,10 @@ class Shader
 
 		if (gl.getProgramParameter(program, gl.LINK_STATUS) == 0)
 		{
-			var message = "Unable to initialize the shader program";
-			message += "\n" + gl.getProgramInfoLog(program);
-			Log.error(message);
+			var error = new ShaderError("program", gl.getProgramInfoLog(program), fragmentSource, lineOffset);
+
+			if (Log.throwErrors) throw error;
+			Log.println(error.message);
 		}
 
 		return program;
@@ -508,9 +515,11 @@ class Shader
 			{
 				program = __context.createProgram(GLSL);
 
+				var lineOffset = prefix.split("\n").length - 1;
+
 				// TODO
 				// program.uploadSources (vertex, fragment);
-				program.__glProgram = __createGLProgram(vertex, fragment);
+				program.__glProgram = __createGLProgram(vertex, fragment, lineOffset);
 
 				__context.__programs.set(id, program);
 			}

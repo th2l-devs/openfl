@@ -2446,6 +2446,34 @@ class Stage extends DisplayObjectContainer #if lime implements IModule #end
 		#end
 
 		__renderable = true;
+
+		// Unlike every other Lime callback, the render path was not routed through
+		// __handleError, so an exception raised while rendering (a failed shader compile,
+		// most commonly) bypassed uncaughtErrorEvents entirely and left __rendering stuck
+		// true, silently wedging every later frame
+		if (__uncaughtErrorEvents.__enabled)
+		{
+			try
+			{
+				__renderFrame(context);
+			}
+			catch (e:Dynamic)
+			{
+				__rendering = false;
+				__handleError(e);
+				return;
+			}
+		}
+		else
+		{
+			__renderFrame(context);
+		}
+
+		__rendering = false;
+	}
+
+	@:noCompletion private function __renderFrame(context:RenderContext):Void
+	{
 		__enterFrame(__deltaTime);
 		__deltaTime = 0;
 
@@ -2454,8 +2482,6 @@ class Stage extends DisplayObjectContainer #if lime implements IModule #end
 		{
 			window.onRender.cancel();
 		}
-
-		__rendering = false;
 	}
 
 	@:noCompletion private function __onLimeRenderContextLost():Void
