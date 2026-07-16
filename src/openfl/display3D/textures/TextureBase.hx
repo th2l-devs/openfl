@@ -187,13 +187,39 @@ class TextureBase extends EventDispatcher
 		mip level 0 (e.g. `uploadFromBitmapData`), and again after any re-upload. Without this, a
 		mip-filtered sampler reads an incomplete texture (renders black), so only enable mip
 		filtering on textures that had their chain generated. 2D textures only; no-op if disposed.
+
+		@param	lodBias		`GL_TEXTURE_LOD_BIAS`: negative values bias mip selection toward the
+							sharper (higher-res) levels, counteracting trilinear softness just
+							below 1:1 scale. Typical range `-0.75..0`. Desktop GL only (ignored
+							on WebGL). `0` = driver default.
+		@param	anisotropy	Max anisotropic filtering samples (`EXT_texture_filter_anisotropic`):
+							markedly sharper minification, especially under rotation or
+							non-uniform scale. `8` or `16` is the common quality setting;
+							`1` = off. Clamped to the driver maximum; skipped if unsupported.
 	**/
-	public function generateMipmaps():Void
+	public function generateMipmaps(lodBias:Float = 0, anisotropy:Float = 1):Void
 	{
 		if (__textureID == null || __textureTarget != __context.gl.TEXTURE_2D) return;
 
+		var gl = __context.gl;
 		__context.__bindGLTexture2D(__textureID);
-		__context.gl.generateMipmap(__textureTarget);
+		gl.generateMipmap(__textureTarget);
+
+		#if !(js && html5)
+		// GL_TEXTURE_LOD_BIAS (core desktop GL; not exposed on WebGL)
+		if (lodBias != 0) gl.texParameterf(__textureTarget, 0x8501, lodBias);
+		#end
+
+		if (anisotropy > 1)
+		{
+			// GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT / GL_TEXTURE_MAX_ANISOTROPY_EXT
+			var maxAniso:Null<Float> = gl.getParameter(0x84FF);
+			if (maxAniso != null && maxAniso > 1)
+			{
+				gl.texParameterf(__textureTarget, 0x84FE, Math.min(anisotropy, maxAniso));
+			}
+		}
+
 		__context.__bindGLTexture2D(null);
 	}
 
