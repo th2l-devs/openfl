@@ -67,6 +67,17 @@ import lime.utils.Int16Array;
 	public var leftPeak(get, never):Float;
 
 	/**
+		The left channel's source signal level, from 0 (silent) to 1 (full amplitude).
+
+		The same smoothed RMS measurement as `leftPeak`, but taken BEFORE volume and
+		panning are applied: it describes the audio content itself, so it does not change
+		when the channel, mixer or application volume changes. Use this for visualizers
+		and beat detection; use `leftPeak` for what is actually audible.
+		Streamed audio keeps no samples in memory and reports 0.
+	**/
+	public var leftLevel(get, never):Float;
+
+	/**
 		When the sound is playing, the `position` property indicates in
 		milliseconds the current point that is being played in the sound file.
 		When the sound is stopped or paused, the `position` property
@@ -92,6 +103,12 @@ import lime.utils.Int16Array;
 	public var rightPeak(get, never):Float;
 
 	/**
+		The right channel's source signal level, from 0 (silent) to 1 (full amplitude).
+		See `leftLevel`.
+	**/
+	public var rightLevel(get, never):Float;
+
+	/**
 		The SoundTransform object assigned to the sound channel. A SoundTransform
 		object includes properties for setting volume, panning, left speaker
 		assignment, and right speaker assignment.
@@ -100,8 +117,10 @@ import lime.utils.Int16Array;
 
 	@:noCompletion private var __sound:Sound;
 	@:noCompletion private var __isValid:Bool;
+	@:noCompletion private var __leftLevel:Float;
 	@:noCompletion private var __leftPeak:Float;
 	@:noCompletion private var __peakTime:Float;
+	@:noCompletion private var __rightLevel:Float;
 	@:noCompletion private var __rightPeak:Float;
 	@:noCompletion private var __soundTransform:SoundTransform;
 	#if lime
@@ -152,6 +171,8 @@ import lime.utils.Int16Array;
 
 		__sound = sound;
 
+		__leftLevel = 0;
+		__rightLevel = 0;
 		__leftPeak = 0;
 		__rightPeak = 0;
 		__peakTime = -1;
@@ -325,6 +346,8 @@ import lime.utils.Int16Array;
 		#if lime
 		if (!__isValid || __sound == null)
 		{
+			__leftLevel = 0;
+			__rightLevel = 0;
 			__leftPeak = 0;
 			__rightPeak = 0;
 			__peakTime = -1;
@@ -344,6 +367,8 @@ import lime.utils.Int16Array;
 		{
 			// Lime decodes to 8 or 16 bit, so anything else is an unknown layout that
 			// could be integer or float. Report nothing rather than a stale level.
+			__leftLevel = 0;
+			__rightLevel = 0;
 			__leftPeak = 0;
 			__rightPeak = 0;
 			return;
@@ -377,6 +402,8 @@ import lime.utils.Int16Array;
 
 		if (count <= 0)
 		{
+			__leftLevel = 0;
+			__rightLevel = 0;
 			__leftPeak = 0;
 			__rightPeak = 0;
 			return;
@@ -400,8 +427,25 @@ import lime.utils.Int16Array;
 		var left = Math.sqrt(leftSum / count);
 		var right = Math.sqrt(rightSum / count);
 
+		// Smooth the SOURCE level, before any gain: leftLevel/rightLevel describe the audio
+		// content itself, so they stay put when the channel, mixer or application volume
+		// changes - and a gain change can never be smeared into the measurement by the
+		// attack/decay filter.
+		if (continuous)
+		{
+			__leftLevel = __smoothLevel(__leftLevel, left, elapsed);
+			__rightLevel = __smoothLevel(__rightLevel, right, elapsed);
+		}
+		else
+		{
+			// Starting, seeking or looping: adopt the level rather than sliding to it
+			__leftLevel = left;
+			__rightLevel = right;
+		}
+
+		// The audible (Flash-compatible) peaks derive from the smoothed source level.
 		// Mirror the gain that set_soundTransform actually hands to the audio source,
-		// including the global mixer, so the level tracks what is audible
+		// including the global mixer, so the peak tracks what is audible.
 		var volume = SoundMixer.__soundTransform.volume * __soundTransform.volume;
 
 		var pan = SoundMixer.__soundTransform.pan + __soundTransform.pan;
@@ -410,20 +454,8 @@ import lime.utils.Int16Array;
 
 		// Panning reaches the output through OpenAL's 3D positioning, which has no exact
 		// closed form here, so apply Flash's own pan law as the closest description
-		left *= volume * (pan > 0 ? 1 - pan : 1);
-		right *= volume * (pan < 0 ? 1 + pan : 1);
-
-		if (continuous)
-		{
-			__leftPeak = __smoothLevel(__leftPeak, left, elapsed);
-			__rightPeak = __smoothLevel(__rightPeak, right, elapsed);
-		}
-		else
-		{
-			// Starting, seeking or looping: adopt the level rather than sliding to it
-			__leftPeak = left;
-			__rightPeak = right;
-		}
+		__leftPeak = __leftLevel * volume * (pan > 0 ? 1 - pan : 1);
+		__rightPeak = __rightLevel * volume * (pan < 0 ? 1 + pan : 1);
 		#end
 	}
 
@@ -474,6 +506,18 @@ import lime.utils.Int16Array;
 	{
 		__updatePeaks();
 		return __leftPeak;
+	}
+
+	@:noCompletion private function get_leftLevel():Float
+	{
+		__updatePeaks();
+		return __leftLevel;
+	}
+
+	@:noCompletion private function get_rightLevel():Float
+	{
+		__updatePeaks();
+		return __rightLevel;
 	}
 
 	@:noCompletion private function get_rightPeak():Float
