@@ -44,9 +44,25 @@ import lime.utils.Int16Array;
 @:access(openfl.media.SoundMixer)
 @:final @:keep class SoundChannel extends EventDispatcher
 {
+	// Level metering. Flash reports an instantaneous peak, but mastered music is limited
+	// so heavily that a peak reads near full scale almost continuously and barely moves.
+	// Measuring RMS over a short window instead tracks perceived loudness, and smoothing
+	// it keeps the value steady between frames.
+	@:noCompletion private static inline var LEVEL_WINDOW_MS:Float = 20;
+	@:noCompletion private static inline var LEVEL_ATTACK_MS:Float = 15;
+	@:noCompletion private static inline var LEVEL_DECAY_MS:Float = 180;
+
+	// Beyond this gap the level is adopted outright rather than smoothed, so seeking,
+	// looping, or a long hitch cannot drag a stale level along behind it
+	@:noCompletion private static inline var LEVEL_RESET_MS:Float = 250;
+
 	/**
 		The current amplitude (volume) of the left channel, from 0 (silent) to 1
 		(full amplitude).
+
+		Measured as the smoothed RMS level of the audio around the current playback
+		position, scaled by the volume and panning actually applied to the channel.
+		Streamed audio keeps no samples in memory and reports 0.
 	**/
 	public var leftPeak(get, never):Float;
 
@@ -68,6 +84,10 @@ import lime.utils.Int16Array;
 	/**
 		The current amplitude (volume) of the right channel, from 0 (silent) to 1
 		(full amplitude).
+
+		Measured as the smoothed RMS level of the audio around the current playback
+		position, scaled by the volume and panning actually applied to the channel.
+		Streamed audio keeps no samples in memory and reports 0.
 	**/
 	public var rightPeak(get, never):Float;
 
@@ -293,8 +313,8 @@ import lime.utils.Int16Array;
 	}
 
 	/**
-		Approximates the output level of each channel by sampling the decoded waveform
-		around the current playback position.
+		Measures the output level of each channel from the decoded waveform around the
+		current playback position.
 
 		Flash meters its mixed output directly, but OpenAL exposes no equivalent, so the
 		level is read back from the source buffer instead. Streamed audio holds no PCM in
@@ -307,6 +327,7 @@ import lime.utils.Int16Array;
 		{
 			__leftPeak = 0;
 			__rightPeak = 0;
+			__peakTime = -1;
 			return;
 		}
 
@@ -318,11 +339,22 @@ import lime.utils.Int16Array;
 		var bitsPerSample = buffer.bitsPerSample;
 
 		if (sampleRate <= 0 || channels <= 0) return;
-		if (bitsPerSample != 8 && bitsPerSample != 16) return;
 
-		// Both peaks are read once per frame, so only measure when playback has moved on
+		if (bitsPerSample != 8 && bitsPerSample != 16)
+		{
+			// Lime decodes to 8 or 16 bit, so anything else is an unknown layout that
+			// could be integer or float. Report nothing rather than a stale level.
+			__leftPeak = 0;
+			__rightPeak = 0;
+			return;
+		}
+
+		// Both channels are read once per frame, so only measure when playback has moved on
 		var time = position;
 		if (time == __peakTime) return;
+
+		var elapsed = time - __peakTime;
+		var continuous = (__peakTime >= 0 && elapsed > 0 && elapsed < LEVEL_RESET_MS);
 		__peakTime = time;
 
 		var data = buffer.data;
@@ -330,46 +362,80 @@ import lime.utils.Int16Array;
 		var frameSize = bytesPerSample * channels;
 		var totalFrames = Std.int(data.length / frameSize);
 
-		var frame = Std.int((time / 1000) * sampleRate);
-		if (frame < 0) frame = 0;
+		var windowFrames = Std.int((LEVEL_WINDOW_MS / 1000) * sampleRate);
+		if (windowFrames < 1) windowFrames = 1;
 
-		// Roughly one display frame of audio: long enough to catch a transient, short
-		// enough to still follow the beat
-		var window = Std.int(sampleRate / 60);
-		if (frame + window > totalFrames) window = totalFrames - frame;
+		// Center the window on the playhead so the level describes what is being heard
+		// now, rather than audio that has not reached the speakers yet
+		var start = Std.int((time / 1000) * sampleRate) - (windowFrames >> 1);
+		if (start < 0) start = 0;
 
-		if (window <= 0)
+		var end = start + windowFrames;
+		if (end > totalFrames) end = totalFrames;
+
+		var count = end - start;
+
+		if (count <= 0)
 		{
 			__leftPeak = 0;
 			__rightPeak = 0;
 			return;
 		}
 
-		var left = 0.0;
-		var right = 0.0;
-		var offset = frame * frameSize;
+		var leftSum = 0.0;
+		var rightSum = 0.0;
+		var offset = start * frameSize;
 
-		for (i in 0...window)
+		for (i in 0...count)
 		{
 			var sampleOffset = offset + (i * frameSize);
 
 			var l = __readSample(data, sampleOffset, bitsPerSample);
 			var r = (channels > 1) ? __readSample(data, sampleOffset + bytesPerSample, bitsPerSample) : l;
 
-			if (l < 0) l = -l;
-			if (r < 0) r = -r;
-
-			if (l > left) left = l;
-			if (r > right) right = r;
+			leftSum += l * l;
+			rightSum += r * r;
 		}
 
-		// Flash reports the level after volume is applied, which is what callers such as
-		// FlxSound expect when they divide it back out
-		var volume = (__soundTransform != null) ? __soundTransform.volume : 1;
+		var left = Math.sqrt(leftSum / count);
+		var right = Math.sqrt(rightSum / count);
 
-		__leftPeak = left * volume;
-		__rightPeak = right * volume;
+		// Mirror the gain that set_soundTransform actually hands to the audio source,
+		// including the global mixer, so the level tracks what is audible
+		var volume = SoundMixer.__soundTransform.volume * __soundTransform.volume;
+
+		var pan = SoundMixer.__soundTransform.pan + __soundTransform.pan;
+		if (pan < -1) pan = -1;
+		if (pan > 1) pan = 1;
+
+		// Panning reaches the output through OpenAL's 3D positioning, which has no exact
+		// closed form here, so apply Flash's own pan law as the closest description
+		left *= volume * (pan > 0 ? 1 - pan : 1);
+		right *= volume * (pan < 0 ? 1 + pan : 1);
+
+		if (continuous)
+		{
+			__leftPeak = __smoothLevel(__leftPeak, left, elapsed);
+			__rightPeak = __smoothLevel(__rightPeak, right, elapsed);
+		}
+		else
+		{
+			// Starting, seeking or looping: adopt the level rather than sliding to it
+			__leftPeak = left;
+			__rightPeak = right;
+		}
 		#end
+	}
+
+	/**
+		Moves a level toward a new measurement, rising quickly so transients register and
+		falling slowly so the result reads steadily. Driven by elapsed playback time, so
+		the response does not change with frame rate.
+	**/
+	@:noCompletion private static function __smoothLevel(current:Float, target:Float, elapsed:Float):Float
+	{
+		var tau = (target > current) ? LEVEL_ATTACK_MS : LEVEL_DECAY_MS;
+		return current + (target - current) * (1 - Math.exp(-elapsed / tau));
 	}
 
 	#if lime
