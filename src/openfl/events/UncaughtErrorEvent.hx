@@ -1,6 +1,8 @@
 package openfl.events;
 
 #if !flash
+import openfl.errors.Error;
+
 // import openfl.utils.ObjectPool;
 /**
 	An UncaughtErrorEvent object is dispatched by an instance of the
@@ -176,7 +178,9 @@ class UncaughtErrorEvent extends ErrorEvent
 	**/
 	public function new(type:String, bubbles:Bool = true, cancelable:Bool = true, error:Dynamic = null)
 	{
-		super(type, bubbles, cancelable);
+		// Flash describes text as the error message and carries the error's id through;
+		// both were previously left at their empty defaults
+		super(type, bubbles, cancelable, __textOf(error), __idOf(error));
 
 		this.error = error;
 	}
@@ -201,6 +205,22 @@ class UncaughtErrorEvent extends ErrorEvent
 		bubbles = true;
 		cancelable = true;
 		error = null;
+	}
+
+	@:noCompletion private static function __idOf(error:Dynamic):Int
+	{
+		if (Std.isOfType(error, Error)) return (cast error : Error).errorID;
+		if (Std.isOfType(error, ErrorEvent)) return (cast error : ErrorEvent).errorID;
+		return 0;
+	}
+
+	@:noCompletion private static function __textOf(error:Dynamic):String
+	{
+		if (error == null) return "";
+		// An uncaught error may be any value at all, so fall back to its string form
+		if (Std.isOfType(error, Error)) return (cast error : Error).message;
+		if (Std.isOfType(error, ErrorEvent)) return (cast error : ErrorEvent).text;
+		return Std.string(error);
 	}
 }
 #else

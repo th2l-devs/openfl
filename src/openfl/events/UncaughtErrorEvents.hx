@@ -39,7 +39,9 @@ import openfl.events.UncaughtErrorEvent;
 #end
 class UncaughtErrorEvents extends EventDispatcher
 {
-	@:noCompletion private var __enabled:Bool = #if (openfl_enable_handle_error || !openfl_disable_handle_error) true #else false #end;
+	@:noCompletion private static inline var __defaultEnabled:Bool = #if (openfl_enable_handle_error || !openfl_disable_handle_error) true #else false #end;
+
+	@:noCompletion private var __enabled:Bool = __defaultEnabled;
 
 	/**
 		Creates an UncaughtErrorEvents instance. Developer code shouldn't
@@ -60,22 +62,30 @@ class UncaughtErrorEvents extends EventDispatcher
 	{
 		super.addEventListener(type, listener, useCapture, priority, useWeakReference);
 
-		#if (openfl_enable_handle_error || !openfl_disable_handle_error)
-		if (__eventMap.exists(UncaughtErrorEvent.UNCAUGHT_ERROR))
+		if (__defaultEnabled && __hasUncaughtErrorListener())
 		{
 			__enabled = true;
 		}
-		#end
 	}
 
 	public override function removeEventListener<T>(type:EventType<T>, listener:T->Void, useCapture:Bool = false):Void
 	{
 		super.removeEventListener(type, listener, useCapture);
 
-		if (!__eventMap.exists(UncaughtErrorEvent.UNCAUGHT_ERROR))
+		if (!__hasUncaughtErrorListener())
 		{
-			__enabled = false;
+			// Restore the compile-time default rather than disabling outright: removing a
+			// listener must not leave error handling weaker than it was before any
+			// listener was ever added
+			__enabled = __defaultEnabled;
 		}
+	}
+
+	@:noCompletion private function __hasUncaughtErrorListener():Bool
+	{
+		// EventDispatcher discards __eventMap once its last listener of any type is
+		// removed, so it cannot be dereferenced unguarded
+		return __eventMap != null && __eventMap.exists(UncaughtErrorEvent.UNCAUGHT_ERROR);
 	}
 }
 #else
