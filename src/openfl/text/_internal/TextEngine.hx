@@ -269,8 +269,21 @@ class TextEngine
 	{
 		var padding = border ? 1 : 0;
 
-		bounds.width = width + padding;
-		bounds.height = height + padding;
+		var italicPad = 0.0;
+		if (textFormatRanges != null)
+		{
+			for (range in textFormatRanges)
+			{
+				if (range != null && range.format != null && range.format.italic == true)
+				{
+					var pad = Math.ceil(height * 0.2125);
+					if (pad > italicPad) italicPad = pad;
+				}
+			}
+		}
+
+		bounds.width = width + padding + italicPad;
+		bounds.height = height + padding + (italicPad > 0 ? Math.ceil(height * 0.15) : 0);
 
 		var x = width, y = height;
 
