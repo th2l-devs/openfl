@@ -56,6 +56,13 @@ import lime.utils.Int16Array;
 	// looping, or a long hitch cannot drag a stale level along behind it
 	@:noCompletion private static inline var LEVEL_RESET_MS:Float = 250;
 
+	// Power of two so the FFT needs no padding. 1024 samples is ~23ms at 44.1kHz, matching
+	// the same order of magnitude as LEVEL_WINDOW_MS - fine time resolution for beat-reactive
+	// visuals while still giving ~43Hz per bin of frequency resolution.
+	@:noCompletion private static inline var SPECTRUM_FFT_SIZE:Int = 1024;
+	@:noCompletion private static inline var SPECTRUM_MIN_HZ:Float = 20;
+	@:noCompletion private static inline var SPECTRUM_MAX_HZ:Float = 16000;
+
 	/**
 		The current amplitude (volume) of the left channel, from 0 (silent) to 1
 		(full amplitude).
@@ -123,6 +130,9 @@ import lime.utils.Int16Array;
 	@:noCompletion private var __rightLevel:Float;
 	@:noCompletion private var __rightPeak:Float;
 	@:noCompletion private var __soundTransform:SoundTransform;
+	@:noCompletion private var __spectrum:Array<Float>;
+	@:noCompletion private var __spectrumBands:Int = 0;
+	@:noCompletion private var __spectrumTime:Float = -1;
 	#if lime
 	@:noCompletion private var __audioSource:AudioSource;
 	#end
@@ -457,6 +467,228 @@ import lime.utils.Int16Array;
 		__leftPeak = __leftLevel * volume * (pan > 0 ? 1 - pan : 1);
 		__rightPeak = __rightLevel * volume * (pan < 0 ? 1 + pan : 1);
 		#end
+	}
+
+	/**
+		Per-band frequency magnitudes (0..1) around the current playback position, via a
+		1024-point FFT of the decoded waveform - the frequency-domain sibling of `leftLevel`.
+
+		Bands are log-spaced from `SPECTRUM_MIN_HZ` to `SPECTRUM_MAX_HZ`, so low `bands` counts
+		read like a bass/mid/treble split rather than wasting resolution on the sub-bass end.
+		Smoothed with the same attack/decay as `leftLevel` so it reads steadily frame to frame.
+		Streamed audio keeps no samples in memory and reports all zeroes, same as `leftLevel`.
+
+		@param bands Number of log-spaced bands to return, clamped to 1-128.
+	**/
+	public function getSpectrum(bands:Int = 16):Array<Float>
+	{
+		if (bands < 1) bands = 1;
+		if (bands > 128) bands = 128;
+
+		#if lime
+		if (!__isValid || __sound == null) return __zeroSpectrum(bands);
+
+		var buffer = __sound.__buffer;
+		if (buffer == null || buffer.data == null || buffer.data.length == 0) return __zeroSpectrum(bands);
+
+		var sampleRate = buffer.sampleRate;
+		var channels = buffer.channels;
+		var bitsPerSample = buffer.bitsPerSample;
+
+		if (sampleRate <= 0 || channels <= 0) return __zeroSpectrum(bands);
+
+		if (bitsPerSample != 8 && bitsPerSample != 16)
+		{
+			// Same unknown-layout guard as __updatePeaks - report nothing rather than garbage
+			return __zeroSpectrum(bands);
+		}
+
+		var time = position;
+
+		// Reuse the last result if nothing has moved and the band count hasn't changed, same
+		// per-frame gate __updatePeaks uses for leftLevel/rightLevel
+		if (__spectrum != null && bands == __spectrumBands && time == __spectrumTime)
+			return __spectrum;
+
+		var data = buffer.data;
+		var bytesPerSample = bitsPerSample >> 3;
+		var frameSize = bytesPerSample * channels;
+		var totalFrames = Std.int(data.length / frameSize);
+
+		var fftSize = SPECTRUM_FFT_SIZE;
+		var start = Std.int((time / 1000) * sampleRate) - (fftSize >> 1);
+
+		var real = new Array<Float>();
+		var imag = new Array<Float>();
+		real.resize(fftSize);
+		imag.resize(fftSize);
+
+		for (i in 0...fftSize)
+		{
+			var frame = start + i;
+			var sample = 0.0;
+
+			if (frame >= 0 && frame < totalFrames)
+			{
+				var offset = frame * frameSize;
+				var l = __readSample(data, offset, bitsPerSample);
+				var r = (channels > 1) ? __readSample(data, offset + bytesPerSample, bitsPerSample) : l;
+				sample = (l + r) * 0.5;
+			}
+
+			// Hann window: without it, the hard edges of this finite slice smear energy across
+			// every band (spectral leakage), which would make the result look noisy/flat
+			var w = 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / (fftSize - 1));
+			real[i] = sample * w;
+			imag[i] = 0;
+		}
+
+		__fft(real, imag);
+
+		var half = fftSize >> 1;
+		var norm = 2.0 / fftSize;
+		var mags = new Array<Float>();
+		mags.resize(half);
+		for (i in 0...half)
+			mags[i] = Math.sqrt(real[i] * real[i] + imag[i] * imag[i]) * norm;
+
+		var target = __binSpectrum(mags, sampleRate, fftSize, bands);
+
+		if (__spectrum == null || __spectrumBands != bands)
+		{
+			__spectrum = target;
+		}
+		else
+		{
+			var elapsed = time - __spectrumTime;
+			var continuous = (__spectrumTime >= 0 && elapsed > 0 && elapsed < LEVEL_RESET_MS);
+
+			for (i in 0...bands)
+			{
+				__spectrum[i] = continuous ? __smoothLevel(__spectrum[i], target[i], elapsed) : target[i];
+			}
+		}
+
+		__spectrumBands = bands;
+		__spectrumTime = time;
+		return __spectrum;
+		#else
+		return __zeroSpectrum(bands);
+		#end
+	}
+
+	@:noCompletion private static function __zeroSpectrum(bands:Int):Array<Float>
+	{
+		var result = new Array<Float>();
+		result.resize(bands);
+		for (i in 0...bands) result[i] = 0.0;
+		return result;
+	}
+
+	// Groups linear FFT bins into `bands` log-spaced bands - music perception is logarithmic
+	// (an octave is a doubling in Hz regardless of where it starts), so linear bins would give
+	// bass a handful of bands and treble hundreds of nearly-identical ones.
+	@:noCompletion private static function __binSpectrum(mags:Array<Float>, sampleRate:Int, fftSize:Int, bands:Int):Array<Float>
+	{
+		var result = new Array<Float>();
+		result.resize(bands);
+
+		var nyquist = sampleRate * 0.5;
+		var maxFreq = Math.min(nyquist, SPECTRUM_MAX_HZ);
+		var logMin = Math.log(SPECTRUM_MIN_HZ);
+		var logMax = Math.log(maxFreq);
+		var binHz = sampleRate / fftSize;
+
+		for (b in 0...bands)
+		{
+			var f0 = Math.exp(logMin + (logMax - logMin) * (b / bands));
+			var f1 = Math.exp(logMin + (logMax - logMin) * ((b + 1) / bands));
+
+			var bin0 = Std.int(f0 / binHz);
+			var bin1 = Std.int(Math.max(bin0 + 1, f1 / binHz));
+			if (bin1 > mags.length) bin1 = mags.length;
+
+			var sum = 0.0;
+			var count = 0;
+			var i = bin0;
+			while (i < bin1)
+			{
+				if (i >= 0 && i < mags.length)
+				{
+					sum += mags[i];
+					count++;
+				}
+				i++;
+			}
+
+			result[b] = (count > 0) ? (sum / count) : 0.0;
+		}
+
+		return result;
+	}
+
+	// Iterative in-place radix-2 Cooley-Tukey FFT. `real.length` must be a power of two
+	// (always SPECTRUM_FFT_SIZE here, so no runtime check).
+	@:noCompletion private static function __fft(real:Array<Float>, imag:Array<Float>):Void
+	{
+		var n = real.length;
+
+		var j = 0;
+		for (i in 0...n)
+		{
+			if (i < j)
+			{
+				var tr = real[i]; real[i] = real[j]; real[j] = tr;
+				var ti = imag[i]; imag[i] = imag[j]; imag[j] = ti;
+			}
+
+			var m = n >> 1;
+			while (m >= 1 && (j & m) != 0)
+			{
+				j &= ~m;
+				m >>= 1;
+			}
+			j |= m;
+		}
+
+		var len = 2;
+		while (len <= n)
+		{
+			var ang = -2 * Math.PI / len;
+			var wr = Math.cos(ang);
+			var wi = Math.sin(ang);
+			var half = len >> 1;
+			var i = 0;
+
+			while (i < n)
+			{
+				var curWr = 1.0;
+				var curWi = 0.0;
+
+				for (k in 0...half)
+				{
+					var evenIdx = i + k;
+					var oddIdx = i + k + half;
+
+					var tr = real[oddIdx] * curWr - imag[oddIdx] * curWi;
+					var ti = real[oddIdx] * curWi + imag[oddIdx] * curWr;
+
+					real[oddIdx] = real[evenIdx] - tr;
+					imag[oddIdx] = imag[evenIdx] - ti;
+					real[evenIdx] += tr;
+					imag[evenIdx] += ti;
+
+					var nwr = curWr * wr - curWi * wi;
+					var nwi = curWr * wi + curWi * wr;
+					curWr = nwr;
+					curWi = nwi;
+				}
+
+				i += len;
+			}
+
+			len <<= 1;
+		}
 	}
 
 	/**
