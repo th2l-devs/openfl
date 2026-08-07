@@ -102,10 +102,7 @@ class Context3DBitmap
 		renderer.applyMatrix(renderer.__getMatrix(bitmap.__renderTransform, bitmap.pixelSnapping));
 		renderer.applyAlpha(bitmap.__worldAlpha);
 
-		shader.uBackdrop.input = backdrop;
-		shader.uBackdrop.filter = NEAREST;
-		shader.uBlendMode.value = [mode];
-		shader.uBackdropFlip.value = [renderer.__flipped ? -1.0 : 1.0];
+		shader.apply(backdrop, mode, renderer.__flipped ? -1.0 : 1.0);
 
 		renderer.updateShader();
 

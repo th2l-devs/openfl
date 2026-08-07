@@ -1,7 +1,10 @@
 package openfl.display._internal;
 
 #if !flash
+import openfl.display.BitmapData;
 import openfl.display.Shader;
+import openfl.display.ShaderInput;
+import openfl.display.ShaderParameter;
 
 /**
 	Composites an isolated group against a copy of the backdrop, for the blend modes that
@@ -127,6 +130,34 @@ class Context3DBlendShader extends Shader
 	public function new()
 	{
 		super();
+	}
+
+	/**
+		Points the shader at `backdrop` and selects the blend formula.
+
+		The custom uniforms are reached through `data` rather than as fields on this class.
+		`Shader.__processGLData` always registers them there, while the typed fields only exist
+		when the `@:autoBuild` macro emitted them - which not every Haxe version does. `data` is
+		the contract that holds either way, and this runs once per blended object, so the dynamic
+		lookup costs nothing that matters.
+
+		@param	flip	`-1` when the backdrop's texture rows run opposite to the source's.
+	**/
+	public function apply(backdrop:BitmapData, mode:Int, flip:Float):Void
+	{
+		var backdropInput:ShaderInput<BitmapData> = data.uBackdrop;
+
+		if (backdropInput != null)
+		{
+			backdropInput.input = backdrop;
+			backdropInput.filter = NEAREST;
+		}
+
+		var blendMode:ShaderParameter<Float> = data.uBlendMode;
+		if (blendMode != null) blendMode.value = [mode];
+
+		var backdropFlip:ShaderParameter<Float> = data.uBackdropFlip;
+		if (backdropFlip != null) backdropFlip.value = [flip];
 	}
 }
 #end
