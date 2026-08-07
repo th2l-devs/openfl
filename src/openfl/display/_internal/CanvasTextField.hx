@@ -36,7 +36,9 @@ class CanvasTextField
 		// textBounds maximizes rendering efficiency by clipping the rectangle to a minimal size containing only the text. Measurements
 		// will always be smaller than bounds.
 		var useTextBounds = !(textEngine.background || textEngine.border);
-		var bounds = useTextBounds ? textEngine.textBounds : textEngine.bounds;
+		// visualBounds, not bounds: it covers the overhang of italic glyphs, which would
+		// otherwise be clipped off the right and bottom edges of the surface
+		var bounds = useTextBounds ? textEngine.textBounds : textEngine.visualBounds;
 		var graphics = textField.__graphics;
 		var cursorOffsetX = 0.0;
 

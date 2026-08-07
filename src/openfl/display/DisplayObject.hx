@@ -1,6 +1,7 @@
 package openfl.display;
 
 #if !flash
+import openfl.display._internal.BlendModeSupport;
 import openfl.display._internal.IBitmapDrawableType;
 import openfl.utils.ObjectPool;
 import openfl.utils._internal.Lib;
@@ -2059,7 +2060,12 @@ class DisplayObject extends EventDispatcher implements IBitmapDrawable #if (open
 
 	@:noCompletion private function get_cacheAsBitmap():Bool
 	{
-		return (__filters == null ? __cacheAsBitmap : true);
+		if (__cacheAsBitmap || __filters != null) return true;
+
+		// LAYER and the blend modes that need the backdrop as a shader input are only correct
+		// against an isolated transparency group, and the cache-bitmap path is how this renderer
+		// produces one - the same machinery a filter already goes through
+		return BlendModeSupport.needsIsolatedGroup(__blendMode);
 	}
 
 	@:noCompletion private function set_cacheAsBitmap(value:Bool):Bool

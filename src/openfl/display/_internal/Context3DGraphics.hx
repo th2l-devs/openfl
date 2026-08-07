@@ -1148,22 +1148,9 @@ class Context3DGraphics
 		if (isQuad) return;
 
 		var buffer = (isQuad ? null /*graphics.__quadIndexBufferData*/ : graphics.__triangleIndexBufferData);
-		var position = 0, newBuffer = null;
+		var newBuffer = GeometryBatch.growIndices(buffer, length);
 
-		#if lime
-		if (buffer == null)
-		{
-			newBuffer = new UInt16Array(length);
-		}
-		else if (length > buffer.length)
-		{
-			newBuffer = new UInt16Array(length);
-			newBuffer.set(buffer);
-			position = buffer.length;
-		}
-		#end
-
-		if (newBuffer != null)
+		if (newBuffer != buffer)
 		{
 			if (isQuad)
 			{
@@ -1194,21 +1181,9 @@ class Context3DGraphics
 	private static function resizeVertexBuffer(graphics:Graphics, hasUVTData:Bool, length:Int):Void
 	{
 		var buffer = (hasUVTData ? graphics.__vertexBufferDataUVT : graphics.__vertexBufferData);
-		var newBuffer:Float32Array = null;
+		var newBuffer = GeometryBatch.growFloats(buffer, length);
 
-		#if lime
-		if (buffer == null)
-		{
-			newBuffer = new Float32Array(length);
-		}
-		else if (length > buffer.length)
-		{
-			newBuffer = new Float32Array(length);
-			newBuffer.set(buffer);
-		}
-		#end
-
-		if (newBuffer != null)
+		if (newBuffer != buffer)
 		{
 			hasUVTData ? graphics.__vertexBufferDataUVT = newBuffer : graphics.__vertexBufferData = newBuffer;
 		}

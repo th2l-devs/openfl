@@ -3,6 +3,7 @@ package openfl.display3D;
 #if !flash
 import openfl.display3D._internal.GLProgram;
 import openfl.display3D._internal.GLShader;
+import openfl.display3D._internal.GLShaderDiagnostics;
 import openfl.display3D._internal.GLUniformLocation;
 import openfl.display3D._internal.AGALConverter;
 import openfl.display._internal.SamplerState;
@@ -74,6 +75,10 @@ import lime.utils.BytePointer;
 	@:noCompletion private var __glslUniformTypes:Array<ShaderParameterType>;
 	@:noCompletion private var __glVertexShader:GLShader;
 	@:noCompletion private var __glVertexSource:String;
+
+	// Lines prepended ahead of the caller's source, so driver-reported line numbers can be
+	// translated back into the caller's own coordinates when reporting a compile error
+	@:noCompletion private var __glLineOffset:Int = 0;
 	// @:noCompletion private var __memUsage:Int;
 	@:noCompletion private var __samplerStates:Array<SamplerState>;
 
@@ -401,6 +406,9 @@ import lime.utils.BytePointer;
 		}
 
 		__deleteShaders();
+		// The GLSL here is generated from AGAL rather than authored, so the driver's line
+		// numbers already refer to the only source there is to quote
+		__glLineOffset = 0;
 		__uploadFromGLSL(glslVertex, glslFragment);
 		__buildAGALUniformList();
 
@@ -440,6 +448,7 @@ import lime.utils.BytePointer;
 		__processGLSLData(fragmentSource, "uniform");
 
 		__deleteShaders();
+		__glLineOffset = GLShaderDiagnostics.lineOffset(prefix);
 		__uploadFromGLSL(vertex, fragment);
 
 		// Sort by index
@@ -861,25 +870,13 @@ import lime.utils.BytePointer;
 		gl.shaderSource(__glVertexShader, vertexShaderSource);
 		gl.compileShader(__glVertexShader);
 
-		if (gl.getShaderParameter(__glVertexShader, gl.COMPILE_STATUS) == 0)
-		{
-			var message = "Error compiling vertex shader";
-			message += "\n" + gl.getShaderInfoLog(__glVertexShader);
-			message += "\n" + vertexShaderSource;
-			Log.error(message);
-		}
+		GLShaderDiagnostics.checkShader(gl, __glVertexShader, "vertex", vertexShaderSource, __glLineOffset);
 
 		__glFragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
 		gl.shaderSource(__glFragmentShader, fragmentShaderSource);
 		gl.compileShader(__glFragmentShader);
 
-		if (gl.getShaderParameter(__glFragmentShader, gl.COMPILE_STATUS) == 0)
-		{
-			var message = "Error compiling fragment shader";
-			message += "\n" + gl.getShaderInfoLog(__glFragmentShader);
-			message += "\n" + fragmentShaderSource;
-			Log.error(message);
-		}
+		GLShaderDiagnostics.checkShader(gl, __glFragmentShader, "fragment", fragmentShaderSource, __glLineOffset);
 
 		__glProgram = gl.createProgram();
 
@@ -915,12 +912,7 @@ import lime.utils.BytePointer;
 		gl.attachShader(__glProgram, __glFragmentShader);
 		gl.linkProgram(__glProgram);
 
-		if (gl.getProgramParameter(__glProgram, gl.LINK_STATUS) == 0)
-		{
-			var message = "Unable to initialize the shader program";
-			message += "\n" + gl.getProgramInfoLog(__glProgram);
-			Log.error(message);
-		}
+		GLShaderDiagnostics.checkProgram(gl, __glProgram, fragmentShaderSource, __glLineOffset);
 	}
 }
 

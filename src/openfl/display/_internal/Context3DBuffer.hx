@@ -2,24 +2,15 @@ package openfl.display._internal;
 
 #if !flash
 import openfl.utils._internal.Float32Array;
-import openfl.utils._internal.UInt16Array;
 import openfl.display3D.Context3D;
-import openfl.display3D.IndexBuffer3D;
 import openfl.display3D.VertexBuffer3D;
 
 @SuppressWarnings("checkstyle:FieldDocComment")
 class Context3DBuffer
 {
-	private static inline var MAX_INDEX_BUFFER_LENGTH:Int = 0xFFFF;
-	private static inline var MAX_QUADS_PER_INDEX_BUFFER:Int = 0x2AAA;
-	private static inline var MAX_QUAD_INDEX_BUFFER_LENGTH:Int = 0xFFFC;
-
 	public var dataPerVertex:Int;
 	public var elementCount:Int;
 	public var elementType:Context3DElementType;
-	public var indexBufferData:Array<UInt16Array>;
-	public var indexBuffers:Array<IndexBuffer3D>;
-	public var indexCount:Int;
 	public var vertexBuffer:VertexBuffer3D;
 	public var vertexBufferData:Float32Array;
 	public var vertexCount:Int;
@@ -32,45 +23,9 @@ class Context3DBuffer
 		this.elementType = elementType;
 		this.dataPerVertex = dataPerVertex;
 
-		indexCount = 0;
 		vertexCount = 0;
 
 		resize(elementCount);
-	}
-
-	public function drawElements(start:Int, length:Int = -1):Void
-	{
-		if (indexCount == 0 || vertexCount == 0) return;
-
-		switch (elementType)
-		{
-			case QUADS:
-				if (length == -1) length = (elementCount * 2);
-
-				if (start < MAX_QUADS_PER_INDEX_BUFFER && length - start < MAX_QUADS_PER_INDEX_BUFFER)
-				{
-					context3D.drawTriangles(indexBuffers[0], start, length * 2);
-				}
-				else
-				{
-					var end = start + length;
-
-					while (start < end)
-					{
-						var arrayBufferIndex = Math.floor(start / MAX_QUADS_PER_INDEX_BUFFER);
-
-						length = Std.int(Math.min(end - start, MAX_QUADS_PER_INDEX_BUFFER));
-						if (length <= 0) break;
-
-						// TODO: Need to advance all vertex buffer bindings past start of 0xFFFF
-
-						context3D.drawTriangles(indexBuffers[arrayBufferIndex], (start - (arrayBufferIndex * MAX_QUADS_PER_INDEX_BUFFER)) * 3, length * 2);
-						start += length;
-					}
-				}
-
-			default:
-		}
 	}
 
 	public function flushVertexBufferData():Void
@@ -81,22 +36,13 @@ class Context3DBuffer
 			vertexBuffer = context3D.createVertexBuffer(vertexCount, dataPerVertex, DYNAMIC_DRAW);
 		}
 
-		// The backing array is high-watermark sized and never shrinks, so upload
-		// only the range used by the current element count
 		var usedLength = switch (elementType)
 		{
 			case QUADS: elementCount * 4 * dataPerVertex;
 			case TRIANGLES, TRIANGLE_INDICES: elementCount * 3 * dataPerVertex;
 		}
 
-		if (usedLength > 0 && usedLength < vertexBufferData.length)
-		{
-			vertexBuffer.uploadFromTypedArray(vertexBufferData.subarray(0, usedLength));
-		}
-		else
-		{
-			vertexBuffer.uploadFromTypedArray(vertexBufferData);
-		}
+		GeometryBatch.upload(vertexBuffer, vertexBufferData, usedLength);
 	}
 
 	public function resize(elementCount:Int, dataPerVertex:Int = -1):Void
@@ -130,25 +76,7 @@ class Context3DBuffer
 			default:
 		}
 
-		var vertexLength = numVertices * dataPerVertex;
-
-		#if lime
-		if (vertexBufferData == null)
-		{
-			vertexBufferData = new Float32Array(vertexLength);
-		}
-		else if (vertexLength > vertexBufferData.length)
-		{
-			// Grow with headroom so a frame with slightly more elements than any
-			// previous frame doesn't reallocate and copy the entire buffer again
-			var newLength = (vertexBufferData.length * 3) >> 1;
-			if (newLength < vertexLength) newLength = vertexLength;
-
-			var cacheBufferData = vertexBufferData;
-			vertexBufferData = new Float32Array(newLength);
-			vertexBufferData.set(cacheBufferData);
-		}
-		#end
+		vertexBufferData = GeometryBatch.growFloats(vertexBufferData, numVertices * dataPerVertex);
 	}
 }
 

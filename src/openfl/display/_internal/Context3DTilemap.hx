@@ -42,6 +42,7 @@ class Context3DTilemap
 	private static var currentBitmapData:BitmapData;
 	private static var currentBlendMode:BlendMode;
 	private static var currentShader:Shader;
+	private static var bufferCapacity:Int;
 	private static var bufferPosition:Int;
 	private static var lastFlushedPosition:Int;
 	private static var lastUsedBitmapData:BitmapData;
@@ -61,7 +62,6 @@ class Context3DTilemap
 		}
 
 		numTiles = 0;
-		vertexBufferData = (tilemap.__buffer != null) ? tilemap.__buffer.vertexBufferData : null;
 		vertexDataPosition = 0;
 
 		var rect = Rectangle.__pool.get();
@@ -72,10 +72,19 @@ class Context3DTilemap
 		if (tilemap.tileAlphaEnabled) dataPerVertex++;
 		if (tilemap.tileColorTransformEnabled) dataPerVertex += 8;
 
+		// The buffer grows lazily as tiles are written (see `ensureCapacity`), so the tile tree is
+		// only walked once - there is no separate pass to compute an exact element count up front
+		initBuffer(tilemap);
+
 		buildBufferTileContainer(tilemap, tilemap.__group, renderer, parentTransform, tilemap.__tileset, tilemap.tileAlphaEnabled, tilemap.__worldAlpha,
 			tilemap.tileColorTransformEnabled, tilemap.__worldColorTransform, null, rect, matrix);
 
-		tilemap.__buffer.flushVertexBufferData();
+		if (numTiles > 0)
+		{
+			// Commit the final element count so only the range actually written gets uploaded
+			tilemap.__buffer.resize(numTiles, dataPerVertex);
+			tilemap.__buffer.flushVertexBufferData();
+		}
 
 		Rectangle.__pool.release(rect);
 		Matrix.__pool.release(matrix);
@@ -84,18 +93,12 @@ class Context3DTilemap
 
 	private static function buildBufferTileContainer(tilemap:Tilemap, group:TileContainer, renderer:OpenGLRenderer, parentTransform:Matrix,
 			defaultTileset:Tileset, alphaEnabled:Bool, worldAlpha:Float, colorTransformEnabled:Bool, defaultColorTransform:ColorTransform,
-			cacheBitmapData:BitmapData, rect:Rectangle, matrix:Matrix, isTopLevel:Bool = true):Void
+			cacheBitmapData:BitmapData, rect:Rectangle, matrix:Matrix):Void
 	{
 		var tileTransform = Matrix.__pool.get();
 		var roundPixels = renderer.__roundPixels;
 
 		var tiles = group.__tiles;
-		var length = group.__length;
-
-		if (isTopLevel) resizeBuffer(tilemap, numTiles + getRecursiveLength(group));
-
-		// Todo: Merge recursive length lookup with for tiles loop to avoid iterating over tiles twice
-		// resizeBuffer(tilemap, numTiles + length);
 
 		var tileset:Tileset;
 		var alpha:Float;
@@ -120,6 +123,10 @@ class Context3DTilemap
 		var y3:Float;
 		var x4:Float;
 		var y4:Float;
+		var wa:Float;
+		var wb:Float;
+		var hc:Float;
+		var hd:Float;
 
 		var alphaPosition = 4;
 		var ctPosition = alphaEnabled ? 5 : 4;
@@ -181,7 +188,7 @@ class Context3DTilemap
 			if (tile.__length > 0)
 			{
 				buildBufferTileContainer(tilemap, cast tile, renderer, tileTransform, tileset, alphaEnabled, alpha, colorTransformEnabled, colorTransform,
-					cacheBitmapData, rect, matrix, false);
+					cacheBitmapData, rect, matrix);
 			}
 			else
 			{
@@ -197,10 +204,13 @@ class Context3DTilemap
 					tileRect = tile.__rect;
 					if (tileRect == null || tileRect.width <= 0 || tileRect.height <= 0) continue;
 
-					uvX = tileRect.x / bitmapData.width;
-					uvY = tileRect.y / bitmapData.height;
-					uvWidth = tileRect.right / bitmapData.width;
-					uvHeight = tileRect.bottom / bitmapData.height;
+					var invBitmapWidth = 1.0 / bitmapData.width;
+					var invBitmapHeight = 1.0 / bitmapData.height;
+
+					uvX = tileRect.x * invBitmapWidth;
+					uvY = tileRect.y * invBitmapHeight;
+					uvWidth = tileRect.right * invBitmapWidth;
+					uvHeight = tileRect.bottom * invBitmapHeight;
 				}
 				else
 				{
@@ -219,14 +229,24 @@ class Context3DTilemap
 				tileWidth = tileRect.width;
 				tileHeight = tileRect.height;
 
-				x = tileTransform.__transformX(0, 0);
-				y = tileTransform.__transformY(0, 0);
-				x2 = tileTransform.__transformX(tileWidth, 0);
-				y2 = tileTransform.__transformY(tileWidth, 0);
-				x3 = tileTransform.__transformX(0, tileHeight);
-				y3 = tileTransform.__transformY(0, tileHeight);
-				x4 = tileTransform.__transformX(tileWidth, tileHeight);
-				y4 = tileTransform.__transformY(tileWidth, tileHeight);
+				// The quad corners are (0,0), (w,0), (0,h) and (w,h), so most terms of the full
+				// matrix multiplication are zero - expand them out instead of eight __transformX/Y calls
+				wa = tileWidth * tileTransform.a;
+				wb = tileWidth * tileTransform.b;
+				hc = tileHeight * tileTransform.c;
+				hd = tileHeight * tileTransform.d;
+
+				x = tileTransform.tx;
+				y = tileTransform.ty;
+				x2 = wa + tileTransform.tx;
+				y2 = wb + tileTransform.ty;
+				x3 = hc + tileTransform.tx;
+				y3 = hd + tileTransform.ty;
+				x4 = wa + hc + tileTransform.tx;
+				y4 = wb + hd + tileTransform.ty;
+
+				ensureCapacity(tilemap, numTiles + 1);
+				numTiles++;
 
 				vertexOffset = vertexDataPosition;
 
@@ -395,18 +415,39 @@ class Context3DTilemap
 		lastUsedShader = currentShader;
 	}
 
-	private static function getRecursiveLength(tileContainer:TileContainer):Int
+	/**
+		Prepares `tilemap.__buffer` for a fresh build pass, creating it if needed and handling a
+		change in `dataPerVertex`. The backing array is left at whatever size previous frames grew
+		it to; `ensureCapacity` takes it from there.
+	**/
+	private static function initBuffer(tilemap:Tilemap):Void
 	{
-		var tiles = tileContainer.__tiles;
-		var totalLength = 0;
-
-		for (tile in tiles)
+		if (tilemap.__buffer == null)
 		{
-			if (tile.__length > 0) totalLength += getRecursiveLength(cast tile);
-			else
-				totalLength++;
+			tilemap.__buffer = new Context3DBuffer(context, QUADS, 0, dataPerVertex);
 		}
-		return totalLength;
+		else
+		{
+			tilemap.__buffer.resize(0, dataPerVertex);
+		}
+
+		vertexBufferData = tilemap.__buffer.vertexBufferData;
+		bufferCapacity = Std.int(vertexBufferData.length / (dataPerVertex * 4));
+	}
+
+	/**
+		Grows the vertex buffer so it can hold at least `count` tiles. `Context3DBuffer.resize()`
+		grows the backing array by 1.5x with headroom, so asking for one more tile than currently
+		fits amortizes to O(1) per tile and removes the need to know the exact count in advance.
+	**/
+	private static inline function ensureCapacity(tilemap:Tilemap, count:Int):Void
+	{
+		if (count > bufferCapacity)
+		{
+			tilemap.__buffer.resize(count, dataPerVertex);
+			vertexBufferData = tilemap.__buffer.vertexBufferData;
+			bufferCapacity = Std.int(vertexBufferData.length / (dataPerVertex * 4));
+		}
 	}
 
 	public static function render(tilemap:Tilemap, renderer:OpenGLRenderer):Void
@@ -640,22 +681,6 @@ class Context3DTilemap
 		// 	}
 
 		// }
-	}
-
-	private static function resizeBuffer(tilemap:Tilemap, count:Int):Void
-	{
-		numTiles = count;
-
-		if (tilemap.__buffer == null)
-		{
-			tilemap.__buffer = new Context3DBuffer(context, QUADS, numTiles, dataPerVertex);
-		}
-		else
-		{
-			tilemap.__buffer.resize(numTiles, dataPerVertex);
-		}
-
-		vertexBufferData = tilemap.__buffer.vertexBufferData;
 	}
 }
 #end

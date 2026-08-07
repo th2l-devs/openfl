@@ -3,6 +3,7 @@ package openfl.display;
 #if !flash
 import openfl.display._internal.Context3DBitmap;
 import openfl.display._internal.Context3DBitmapData;
+import openfl.display._internal.Context3DBlendShader;
 import openfl.display._internal.Context3DDisplayObject;
 import openfl.display._internal.Context3DDisplayObjectContainer;
 import openfl.display._internal.Context3DGraphics;
@@ -11,6 +12,8 @@ import openfl.display._internal.Context3DSimpleButton;
 import openfl.display._internal.Context3DTextField;
 import openfl.display._internal.Context3DTilemap;
 import openfl.display._internal.Context3DVideo;
+import openfl.display._internal.GLDevice;
+import openfl.display._internal.RenderPipeline;
 import openfl.display._internal.ShaderBuffer;
 import openfl.utils.ObjectPool;
 import openfl.display3D.Context3DClearMask;
@@ -37,6 +40,7 @@ import lime.math.Matrix4;
 @:access(lime.graphics.GLRenderContext)
 @:access(openfl.display._internal.ShaderBuffer)
 @:access(openfl.display3D.Context3D)
+@:access(openfl.display3D.textures.TextureBase)
 @:access(openfl.display.BitmapData)
 @:access(openfl.display.DisplayObject)
 @:access(openfl.display.Graphics)
@@ -73,6 +77,7 @@ class OpenGLRenderer extends DisplayObjectRenderer
 	@:noCompletion private static var __staticDefaultDisplayShader:DisplayObjectShader;
 	@:noCompletion private static var __staticDefaultGraphicsShader:GraphicsShader;
 	@:noCompletion private static var __staticMaskShader:Context3DMaskShader;
+	@:noCompletion private static var __staticBlendShader:Context3DBlendShader;
 
 	@:noCompletion private var __context3D:Context3D;
 	@:noCompletion private var __clipRects:Array<Rectangle>;
@@ -88,6 +93,20 @@ class OpenGLRenderer extends DisplayObjectRenderer
 	@:noCompletion private var __displayHeight:Int;
 	@:noCompletion private var __displayWidth:Int;
 	@:noCompletion private var __flipped:Bool;
+
+	// True when this renderer draws into an isolated transparency group (a cache bitmap) rather
+	// than into the scene. ALPHA and ERASE are only meaningful in that case - see BlendModeSupport
+	@:noCompletion private var __isolatedGroup:Bool;
+
+	// Scratch copy of the render target, taken over the bounds of an object whose blend mode
+	// needs the backdrop as a shader input. Grown on demand and reused across frames
+	@:noCompletion private var __backdropBitmapData:BitmapData;
+	@:noCompletion private var __blendShader:Context3DBlendShader;
+
+	// The pass boundary: __renderDrawable dispatches through the pipeline rather than calling
+	// the Context3D* statics directly, so a pass can be replaced without touching the renderer
+	@:noCompletion private var __device:GLDevice;
+	@:noCompletion private var __pipeline:RenderPipeline;
 	@SuppressWarnings("checkstyle:Dynamic") @:noCompletion private var __gl:#if lime WebGLRenderContext #else Dynamic #end;
 	@:noCompletion private var __height:Int;
 	@:noCompletion private var __maskShader:Context3DMaskShader;
@@ -166,6 +185,7 @@ class OpenGLRenderer extends DisplayObjectRenderer
 		if (__staticDefaultDisplayShader == null) __staticDefaultDisplayShader = new DisplayObjectShader();
 		if (__staticDefaultGraphicsShader == null) __staticDefaultGraphicsShader = new GraphicsShader();
 		if (__staticMaskShader == null) __staticMaskShader = new Context3DMaskShader();
+		if (__staticBlendShader == null) __staticBlendShader = new Context3DBlendShader();
 
 		__defaultDisplayShader = __staticDefaultDisplayShader;
 		__defaultGraphicsShader = __staticDefaultGraphicsShader;
@@ -175,6 +195,10 @@ class OpenGLRenderer extends DisplayObjectRenderer
 
 		__scrollRectMasks = new ObjectPool<Shape>(function() return new Shape());
 		__maskShader = __staticMaskShader;
+		__blendShader = __staticBlendShader;
+
+		__device = new GLDevice(this);
+		__pipeline = new RenderPipeline();
 	}
 
 	/**
@@ -870,54 +894,12 @@ class OpenGLRenderer extends DisplayObjectRenderer
 
 	@:noCompletion private function __renderDrawable(object:IBitmapDrawable):Void
 	{
-		if (object == null) return;
-
-		switch (object.__drawableType)
-		{
-			case BITMAP_DATA:
-				Context3DBitmapData.renderDrawable(cast object, this);
-			case STAGE, SPRITE:
-				Context3DDisplayObjectContainer.renderDrawable(cast object, this);
-			case BITMAP:
-				Context3DBitmap.renderDrawable(cast object, this);
-			case SHAPE:
-				Context3DDisplayObject.renderDrawable(cast object, this);
-			case SIMPLE_BUTTON:
-				Context3DSimpleButton.renderDrawable(cast object, this);
-			case TEXT_FIELD:
-				Context3DTextField.renderDrawable(cast object, this);
-			case VIDEO:
-				Context3DVideo.renderDrawable(cast object, this);
-			case TILEMAP:
-				Context3DTilemap.renderDrawable(cast object, this);
-			default:
-		}
+		__pipeline.execute(object, __device);
 	}
 
 	@:noCompletion private function __renderDrawableMask(object:IBitmapDrawable):Void
 	{
-		if (object == null) return;
-
-		switch (object.__drawableType)
-		{
-			case BITMAP_DATA:
-				Context3DBitmapData.renderDrawableMask(cast object, this);
-			case STAGE, SPRITE:
-				Context3DDisplayObjectContainer.renderDrawableMask(cast object, this);
-			case BITMAP:
-				Context3DBitmap.renderDrawableMask(cast object, this);
-			case SHAPE:
-				Context3DDisplayObject.renderDrawableMask(cast object, this);
-			case SIMPLE_BUTTON:
-				Context3DSimpleButton.renderDrawableMask(cast object, this);
-			case TEXT_FIELD:
-				Context3DTextField.renderDrawableMask(cast object, this);
-			case VIDEO:
-				Context3DVideo.renderDrawableMask(cast object, this);
-			case TILEMAP:
-				Context3DTilemap.renderDrawableMask(cast object, this);
-			default:
-		}
+		__pipeline.executeMask(object, __device);
 	}
 
 	@:noCompletion private function __renderFilterPass(source:BitmapData, shader:Shader, smooth:Bool, clear:Bool = true):Void
@@ -961,6 +943,77 @@ class OpenGLRenderer extends DisplayObjectRenderer
 		}
 
 		__clearShader();
+	}
+
+	/**
+		Copies the current render target, over the screen-space rectangle the given bitmap will
+		occupy, into a scratch texture that `Context3DBlendShader` can sample as the backdrop.
+
+		`renderX`/`renderY` are the top-left of that rectangle in render space, which maps 1:1 to
+		framebuffer pixels (the viewport covers the whole target and the projection is orthographic
+		over `__displayWidth` x `__displayHeight`).
+
+		Returns `null` if the rectangle lies entirely outside the target, in which case there is no
+		backdrop to blend against.
+	**/
+	@:noCompletion private function __captureBackdrop(bitmapData:BitmapData, renderX:Float, renderY:Float):BitmapData
+	{
+		#if lime
+		var width = bitmapData.width;
+		var height = bitmapData.height;
+
+		if (width <= 0 || height <= 0) return null;
+
+		// The blend shader samples the backdrop with the source's own texture coordinates, so the
+		// two textures have to be the same size for a coordinate to mean the same pixel in both
+		if (__backdropBitmapData == null || __backdropBitmapData.width != width || __backdropBitmapData.height != height)
+		{
+			__backdropBitmapData = new BitmapData(width, height, true, 0);
+		}
+
+		var texture = __backdropBitmapData.getTexture(__context3D);
+		if (texture == null) return null;
+
+		__backdropBitmapData.__setUVRect(__context3D, 0, 0, width, height);
+
+		var readX = Std.int(renderX) + __offsetX;
+		// glCopyTexSubImage2D reads with the framebuffer origin at the bottom left. When drawing
+		// to the back buffer the projection is flipped, so a render-space top edge is that many
+		// pixels down from the top of the framebuffer
+		var readY = __flipped ? (__displayHeight - Std.int(renderY) - height) + __offsetY : Std.int(renderY) + __offsetY;
+
+		// Clamp to the target: texels of the read region that fall outside it are left undefined
+		var destX = 0;
+		var destY = 0;
+		var readWidth = width;
+		var readHeight = height;
+
+		if (readX < 0)
+		{
+			destX = -readX;
+			readWidth -= destX;
+			readX = 0;
+		}
+
+		if (readY < 0)
+		{
+			destY = -readY;
+			readHeight -= destY;
+			readY = 0;
+		}
+
+		if (readX + readWidth > __displayWidth) readWidth = __displayWidth - readX;
+		if (readY + readHeight > __displayHeight) readHeight = __displayHeight - readY;
+
+		if (readWidth <= 0 || readHeight <= 0) return null;
+
+		__context3D.__bindGLTexture2D(texture.__textureID);
+		__gl.copyTexSubImage2D(__gl.TEXTURE_2D, 0, destX, destY, readX, readY, readWidth, readHeight);
+
+		return __backdropBitmapData;
+		#else
+		return null;
+		#end
 	}
 
 	@:noCompletion private override function __resize(width:Int, height:Int):Void
@@ -1050,9 +1103,24 @@ class OpenGLRenderer extends DisplayObjectRenderer
 			case SCREEN:
 				__context3D.setBlendFactors(ONE, ONE_MINUS_SOURCE_COLOR);
 
+			case INVERT:
+				// result = (1 - Dst) * Src, so an opaque white source yields exactly the
+				// inverted background and coverage still comes from the source color
+				__context3D.setBlendFactors(ONE_MINUS_DESTINATION_COLOR, ZERO);
+
 			case SUBTRACT:
 				__context3D.setBlendFactors(ONE, ONE);
 				__context3D.__setGLBlendEquation(__gl.FUNC_REVERSE_SUBTRACT);
+
+			case ALPHA if (__isolatedGroup):
+				// Porter-Duff destination-in: result = Dst * Src.a. Only correct against the
+				// group's own buffer - straight to the back buffer it would mask everything
+				// already drawn, not just the group
+				__context3D.setBlendFactors(ZERO, SOURCE_ALPHA);
+
+			case ERASE if (__isolatedGroup):
+				// Porter-Duff destination-out: result = Dst * (1 - Src.a)
+				__context3D.setBlendFactors(ZERO, ONE_MINUS_SOURCE_ALPHA);
 
 			#if desktop
 			case DARKEN:

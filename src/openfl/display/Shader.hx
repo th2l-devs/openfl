@@ -6,6 +6,7 @@ import openfl.display3D.Context3DTextureFilter;
 #if !flash
 import openfl.display3D._internal.GLProgram;
 import openfl.display3D._internal.GLShader;
+import openfl.display3D._internal.GLShaderDiagnostics;
 import openfl.display._internal.ShaderBuffer;
 import openfl.utils._internal.Float32Array;
 import openfl.utils._internal.Log;
@@ -324,24 +325,8 @@ class Shader
 		var shader = gl.createShader(type);
 		gl.shaderSource(shader, source);
 		gl.compileShader(shader);
-		var shaderInfoLog = gl.getShaderInfoLog(shader);
-		var hasInfoLog = shaderInfoLog != null && StringTools.trim(shaderInfoLog) != "";
-		var compileStatus = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
 
-		if (compileStatus == 0)
-		{
-			var error = new ShaderError((type == gl.VERTEX_SHADER) ? "vertex" : "fragment", shaderInfoLog, source, lineOffset);
-
-			if (Log.throwErrors) throw error;
-			Log.println(error.message);
-		}
-		else if (hasInfoLog)
-		{
-			var message = (type == gl.VERTEX_SHADER) ? "Info compiling vertex shader" : "Info compiling fragment shader";
-			message += "\n" + shaderInfoLog;
-			message += "\n" + source;
-			Log.debug(message);
-		}
+		GLShaderDiagnostics.checkShader(gl, shader, (type == gl.VERTEX_SHADER) ? "vertex" : "fragment", source, lineOffset);
 
 		return shader;
 	}
@@ -369,13 +354,7 @@ class Shader
 		gl.attachShader(program, fragmentShader);
 		gl.linkProgram(program);
 
-		if (gl.getProgramParameter(program, gl.LINK_STATUS) == 0)
-		{
-			var error = new ShaderError("program", gl.getProgramInfoLog(program), fragmentSource, lineOffset);
-
-			if (Log.throwErrors) throw error;
-			Log.println(error.message);
-		}
+		GLShaderDiagnostics.checkProgram(gl, program, fragmentSource, lineOffset);
 
 		return program;
 	}

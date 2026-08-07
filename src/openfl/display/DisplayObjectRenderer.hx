@@ -520,6 +520,10 @@ class DisplayObjectRenderer extends EventDispatcher
 					if (renderType == OPENGL)
 					{
 						displayObject.__cacheBitmapRenderer = new OpenGLRenderer(cast(renderer, OpenGLRenderer).__context3D, displayObject.__cacheBitmapData);
+						// Everything drawn through this renderer lands in the cache bitmap, which
+						// is an isolated transparency group - so ALPHA and ERASE children
+						// composite against the group buffer, as Flash specifies
+						cast(displayObject.__cacheBitmapRenderer, OpenGLRenderer).__isolatedGroup = true;
 					}
 					else
 					{

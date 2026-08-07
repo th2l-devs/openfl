@@ -35,7 +35,9 @@ package openfl.display;
 		parent display object be set to
 		`openfl.display.BlendMode.LAYER`.
 
-		Not supported under GPU rendering.
+		Under GPU rendering this is the Porter-Duff `destination-in` operator applied against
+		the parent's group buffer. With a parent that is not `LAYER` there is no group buffer
+		to composite against, and the mode has no effect.
 	**/
 	public var ALPHA = 1;
 
@@ -49,7 +51,8 @@ package openfl.display;
 		resulting RGB value for the displayed pixel is 0xDDCC00 (because 0xFF >
 		0xDD, 0xCC < 0xF8, and 0x33 > 0x00 = 33).
 
-		Not supported under GPU rendering.
+		Under GPU rendering this is supported on desktop targets, where the `GL_MIN` blend
+		equation is available; elsewhere it falls back to `NORMAL`.
 	**/
 	public var DARKEN = 2;
 
@@ -63,6 +66,9 @@ package openfl.display;
 		0xFFCC33, and the background pixel has an RGB value of 0xDDF800, the
 		resulting RGB value for the displayed pixel is 0x222C33 (because 0xFF -
 		0xDD = 0x22, 0xF8 - 0xCC = 0x2C, and 0x33 - 0x00 = 0x33).
+
+		Under GPU rendering this requires reading the backdrop, so the object is composited
+		through an isolated group. See `BlendModeSupport`.
 	**/
 	public var DIFFERENCE = 3;
 
@@ -71,7 +77,9 @@ package openfl.display;
 		process requires that the `blendMode` property of the parent
 		display object be set to `openfl.display.BlendMode.LAYER`.
 
-		Not supported under GPU rendering.
+		Under GPU rendering this is the Porter-Duff `destination-out` operator applied against
+		the parent's group buffer. With a parent that is not `LAYER` there is no group buffer
+		to composite against, and the mode has no effect.
 	**/
 	public var ERASE = 4;
 
@@ -83,12 +91,15 @@ package openfl.display;
 		which results in a darker color. This setting is commonly used for shading
 		effects.
 
-		Not supported under GPU rendering.
+		Under GPU rendering this requires reading the backdrop, so the object is composited
+		through an isolated group. See `BlendModeSupport`.
 	**/
 	public var HARDLIGHT = 5;
 
 	/**
 		Inverts the background.
+
+		Supported under GPU rendering, as fixed-function blending.
 	**/
 	public var INVERT = 6;
 
@@ -100,7 +111,8 @@ package openfl.display;
 		object is a display object container that has at least one child object
 		with a `blendMode` setting other than `"normal"`.
 
-		Not supported under GPU rendering.
+		Under GPU rendering the group is produced by the same offscreen buffer the cache-bitmap
+		and filter paths use, then composited onto the parent with source-over.
 	**/
 	public var LAYER = 7;
 
@@ -114,7 +126,8 @@ package openfl.display;
 		resulting RGB value for the displayed pixel is 0xFFF833 (because 0xFF >
 		0xDD, 0xCC < 0xF8, and 0x33 > 0x00 = 33).
 
-		Not supported under GPU rendering.
+		Under GPU rendering this is supported on desktop targets, where the `GL_MAX` blend
+		equation is available; elsewhere it falls back to `NORMAL`.
 	**/
 	public var LIGHTEN = 8;
 
@@ -148,7 +161,8 @@ package openfl.display;
 		results in a darker color. This setting is commonly used for shading
 		effects.
 
-		Not supported under GPU rendering.
+		Under GPU rendering this requires reading the backdrop, so the object is composited
+		through an isolated group. See `BlendModeSupport`.
 	**/
 	public var OVERLAY = 11;
 

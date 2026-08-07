@@ -83,6 +83,17 @@ class TextEngine
 	public var textHeight:Float;
 	public var textFormatRanges:Vector<TextFormatRange>;
 	public var textWidth:Float;
+
+	/**
+		`bounds` grown to cover ink that spills outside the layout box - currently the horizontal
+		overhang and vertical overshoot of italic (or faux-italic) glyphs.
+
+		This is the rectangle to use when allocating or clipping a rendering surface. It is
+		deliberately kept separate from `bounds`, which stays the layout box the public
+		`getBounds()` and the mouse hit test are built on, so that adding an italic format range
+		doesn't silently change a field's reported size or clickable area.
+	**/
+	public var visualBounds:Rectangle;
 	public var type:TextFieldType;
 	public var width:Float;
 	public var wordWrap:Bool;
@@ -123,6 +134,7 @@ class TextEngine
 
 		bounds = new Rectangle(0, 0, 0, 0);
 		textBounds = new Rectangle(0, 0, 0, 0);
+		visualBounds = new Rectangle(0, 0, 0, 0);
 
 		type = TextFieldType.DYNAMIC;
 		autoSize = TextFieldAutoSize.NONE;
@@ -269,21 +281,29 @@ class TextEngine
 	{
 		var padding = border ? 1 : 0;
 
-		var italicPad = 0.0;
+		// Slanted glyphs overhang the layout box to the right and overshoot it vertically. The
+		// padding that covers them goes into `visualBounds` only - `bounds` stays the layout box,
+		// because `TextField.getBounds()` and the mouse hit test both read it directly.
+		var italicPadX = 0.0;
+		var italicPadY = 0.0;
+
 		if (textFormatRanges != null)
 		{
 			for (range in textFormatRanges)
 			{
 				if (range != null && range.format != null && range.format.italic == true)
 				{
-					var pad = Math.ceil(height * 0.2125);
-					if (pad > italicPad) italicPad = pad;
+					italicPadX = Math.ceil(height * 0.2125);
+					italicPadY = Math.ceil(height * 0.15);
+					break;
 				}
 			}
 		}
 
-		bounds.width = width + padding + italicPad;
-		bounds.height = height + padding + (italicPad > 0 ? Math.ceil(height * 0.15) : 0);
+		bounds.width = width + padding;
+		bounds.height = height + padding;
+
+		visualBounds.setTo(bounds.x, bounds.y, bounds.width + italicPadX, bounds.height + italicPadY);
 
 		var x = width, y = height;
 
@@ -308,8 +328,11 @@ class TextEngine
 		#end
 
 		// don't add 4 to bounds.width and bounds.height here because the + 4
-		// is already included from a previous calculation
-		textBounds.setTo(Math.max(x - 2, 0), Math.max(y - 2, 0), Math.min(textWidth + 4, bounds.width), Math.min(textHeight + 4, bounds.height));
+		// is already included from a previous calculation.
+		// The clamp is against visualBounds rather than bounds so that italic overhang stays
+		// inside the clipped rectangle instead of being cut off
+		textBounds.setTo(Math.max(x - 2, 0), Math.max(y - 2, 0), Math.min(textWidth + 4 + italicPadX, visualBounds.width),
+			Math.min(textHeight + 4 + italicPadY, visualBounds.height));
 	}
 
 	private static function getDefaultFont(name:String, bold:Bool, italic:Bool):Font

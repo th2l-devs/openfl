@@ -16,7 +16,7 @@ class Context3DStats
 
 	public static function incrementDrawCall(context:DrawCallContext):Void
 	{
-		drawCallsCounters.get(context).increment();
+		__getCounter(context).increment();
 	}
 
 	public static function resetDrawCalls():Void
@@ -40,6 +40,24 @@ class Context3DStats
 
 	public static function contextDrawCalls(context:DrawCallContext):Int
 	{
-		return drawCallsCounters.get(context).currentDrawCallsNum;
+		return __getCounter(context).currentDrawCallsNum;
+	}
+
+	/**
+		Returns the counter for `context`, creating it on first use. `drawCallsCounters` is
+		initialized with a hardcoded key per `DrawCallContext` value, so a direct `get()` would
+		return null for any value added to the enum later.
+	**/
+	private static function __getCounter(context:DrawCallContext):DrawCallCounter
+	{
+		var counter = drawCallsCounters.get(context);
+
+		if (counter == null)
+		{
+			counter = new DrawCallCounter();
+			drawCallsCounters.set(context, counter);
+		}
+
+		return counter;
 	}
 }

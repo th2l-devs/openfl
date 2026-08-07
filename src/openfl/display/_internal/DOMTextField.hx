@@ -223,7 +223,7 @@ class DOMTextField
 					}
 
 					var useTextBounds = !(textEngine.background || textEngine.border);
-					var bounds = useTextBounds ? textEngine.textBounds : textEngine.bounds;
+					var bounds = useTextBounds ? textEngine.textBounds : textEngine.visualBounds;
 
 					var scrollX = -textField.scrollH;
 					var scrollY = 0.0;

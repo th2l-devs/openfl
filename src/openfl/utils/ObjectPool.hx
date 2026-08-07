@@ -78,8 +78,13 @@ class ObjectPool<T>
 		{
 			object = __getInactive();
 		}
-		else if (__size == null || activeObjects < __size)
+		else
 		{
+			// Even when the pool is bounded and exhausted, create the object anyway rather than
+			// handing back null: the `get():T` signature promises a non-null value, and none of
+			// the call sites in the renderer check the result. The extra object is tracked as
+			// active, so `release()` keeps the counters in sync and the pool settles back down
+			// to its target size as objects come back.
 			object = create();
 
 			if (object != null)
