@@ -33,23 +33,18 @@ class CanvasTextField
 	{
 		#if (js && html5)
 		var textEngine = textField.__textEngine;
+		// textBounds maximizes rendering efficiency by clipping the rectangle to a minimal size containing only the text. Measurements
+		// will always be smaller than bounds.
+		var useTextBounds = !(textEngine.background || textEngine.border);
+		// visualBounds, not bounds: it also covers the padding added for faux-italic ranges
+		var bounds = useTextBounds ? textEngine.textBounds : textEngine.visualBounds;
 		var graphics = textField.__graphics;
 		var cursorOffsetX = 0.0;
 
-		// Ahead of reading hasItalicFormat, which update() recomputes. __updateLayout() is a no-op
-		// unless the layout is actually dirty, so this is the same work in a different order
-		if (textField.__dirty) textField.__updateLayout();
-
-		// textBounds maximizes rendering efficiency by clipping the rectangle to a minimal size containing only the text. Measurements
-		// will always be smaller than bounds.
-		// Italics are excluded: their ink leans outside the text rectangle in both directions, and
-		// textBounds is the origin the glyphs are drawn relative to, so the overhang cannot be
-		// recovered by padding. Those fields draw into the padded visualBounds instead.
-		var useTextBounds = !(textEngine.background || textEngine.border || textEngine.hasItalicFormat);
-		var bounds = useTextBounds ? textEngine.textBounds : textEngine.visualBounds;
-
 		if (textField.__dirty)
 		{
+			textField.__updateLayout();
+
 			if (graphics.__bounds == null)
 			{
 				graphics.__bounds = new Rectangle();
