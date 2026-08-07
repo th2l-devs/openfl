@@ -22,9 +22,9 @@ class BitmapDataPass implements IRenderPass
 {
 	public function new() {}
 
-	public function accepts(type:IBitmapDrawableType):Bool
+	public function drawableTypes():Array<IBitmapDrawableType>
 	{
-		return type == BITMAP_DATA;
+		return [BITMAP_DATA];
 	}
 
 	public function begin(device:GLDevice):Void {}
@@ -56,9 +56,9 @@ class ObjectPass implements IRenderPass
 {
 	public function new() {}
 
-	public function accepts(type:IBitmapDrawableType):Bool
+	public function drawableTypes():Array<IBitmapDrawableType>
 	{
-		return type == STAGE || type == SPRITE || type == SHAPE || type == SIMPLE_BUTTON;
+		return [STAGE, SPRITE, SHAPE, SIMPLE_BUTTON];
 	}
 
 	public function begin(device:GLDevice):Void {}
@@ -104,9 +104,9 @@ class BitmapPass implements IRenderPass
 {
 	public function new() {}
 
-	public function accepts(type:IBitmapDrawableType):Bool
+	public function drawableTypes():Array<IBitmapDrawableType>
 	{
-		return type == BITMAP;
+		return [BITMAP];
 	}
 
 	public function begin(device:GLDevice):Void {}
@@ -136,9 +136,9 @@ class TextPass implements IRenderPass
 {
 	public function new() {}
 
-	public function accepts(type:IBitmapDrawableType):Bool
+	public function drawableTypes():Array<IBitmapDrawableType>
 	{
-		return type == TEXT_FIELD;
+		return [TEXT_FIELD];
 	}
 
 	public function begin(device:GLDevice):Void {}
@@ -168,9 +168,9 @@ class VideoPass implements IRenderPass
 {
 	public function new() {}
 
-	public function accepts(type:IBitmapDrawableType):Bool
+	public function drawableTypes():Array<IBitmapDrawableType>
 	{
-		return type == VIDEO;
+		return [VIDEO];
 	}
 
 	public function begin(device:GLDevice):Void {}
@@ -203,9 +203,9 @@ class TilemapPass implements IRenderPass
 {
 	public function new() {}
 
-	public function accepts(type:IBitmapDrawableType):Bool
+	public function drawableTypes():Array<IBitmapDrawableType>
 	{
-		return type == TILEMAP;
+		return [TILEMAP];
 	}
 
 	public function begin(device:GLDevice):Void {}

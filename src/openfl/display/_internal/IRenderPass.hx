@@ -17,9 +17,14 @@ import openfl.display.IBitmapDrawable;
 interface IRenderPass
 {
 	/**
-		Whether this pass handles `type`.
+		The drawable types this pass claims.
+
+		A pass declares its types rather than answering `accepts(type)` for each one in turn, so
+		registration never has to know how many `IBitmapDrawableType` values exist. Probing a range
+		would silently skip any case added to the enum later, leaving that drawable type with no
+		pass and nothing rendered - no error, just an object that never appears.
 	**/
-	function accepts(type:IBitmapDrawableType):Bool;
+	function drawableTypes():Array<IBitmapDrawableType>;
 
 	/**
 		Called once before the first drawable of the frame reaches this pass.

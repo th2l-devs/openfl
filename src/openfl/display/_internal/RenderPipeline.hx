@@ -51,9 +51,9 @@ class RenderPipeline
 
 		if (__passes.indexOf(pass) == -1) __passes.push(pass);
 
-		for (type in 0...__TYPE_COUNT)
+		for (type in pass.drawableTypes())
 		{
-			if (pass.accepts(cast type)) __byType[type] = pass;
+			__byType[cast type] = pass;
 		}
 	}
 
@@ -108,8 +108,5 @@ class RenderPipeline
 			pass.end(device);
 		}
 	}
-
-	// One past the highest IBitmapDrawableType value
-	@:noCompletion private static inline var __TYPE_COUNT:Int = 11;
 }
 #end
