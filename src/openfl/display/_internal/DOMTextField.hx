@@ -222,7 +222,10 @@ class DOMTextField
 							textField.__textEngine.textFormatRanges));
 					}
 
-					var useTextBounds = !(textEngine.background || textEngine.border);
+					// Italics are excluded: their ink leans outside the tight text rectangle, which
+					// is also the origin glyphs are positioned against, so the overhang cannot be
+					// recovered by padding. Those fields use the padded visualBounds instead.
+					var useTextBounds = !(textEngine.background || textEngine.border || textEngine.hasItalicFormat);
 					var bounds = useTextBounds ? textEngine.textBounds : textEngine.visualBounds;
 
 					var scrollX = -textField.scrollH;
