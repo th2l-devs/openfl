@@ -10,7 +10,7 @@ import openfl.display.IBitmapDrawable;
 	first, before changing any of them, is what makes the dispatcher swap in `RenderPipeline`
 	mechanical: the drawing code is untouched, only the way it is reached changes. A pass can then
 	be rewritten - or replaced with a different implementation entirely, as `TilemapPass` is on
-	Windows - behind the interface, without the dispatcher knowing.
+	desktop GL - behind the interface, without the dispatcher knowing.
 **/
 #if !openfl_debug
 @:fileXml('tags="haxe,release"')
@@ -191,8 +191,9 @@ class VideoPass implements IRenderPass
 /**
 	Draws `Tilemap` instances.
 
-	On Windows this hands off to `InstancedTilePass` when the driver supports instanced arrays,
-	falling back to `Context3DTilemap` otherwise.
+	On desktop GL - Windows and Linux - this hands off to `InstancedTilePass` when the driver
+	supports instanced arrays, falling back to `Context3DTilemap` otherwise. macOS is excluded:
+	its compatibility profile caps at GL 2.1, which predates instanced arrays entirely.
 **/
 #if !openfl_debug
 @:fileXml('tags="haxe,release"')
@@ -212,7 +213,7 @@ class TilemapPass implements IRenderPass
 
 	public function execute(drawable:IBitmapDrawable, device:GLDevice):Void
 	{
-		#if (windows && cpp)
+		#if ((windows || linux) && cpp)
 		if (InstancedTilePass.isSupported(device) && InstancedTilePass.renderDrawable(cast drawable, device)) return;
 		#end
 

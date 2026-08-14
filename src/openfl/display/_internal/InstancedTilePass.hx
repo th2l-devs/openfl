@@ -1,6 +1,6 @@
 package openfl.display._internal;
 
-#if (!flash && windows && cpp)
+#if (!flash && (windows || linux) && cpp)
 import openfl.display.BitmapData;
 import openfl.display.BlendMode;
 import openfl.display.Tile;
@@ -28,7 +28,7 @@ import openfl.display._internal.stats.DrawCallContext;
 #end
 
 /**
-	Draws a `Tilemap` as hardware instances of a single unit quad, on Windows desktop GL.
+	Draws a `Tilemap` as hardware instances of a single unit quad, on desktop GL (Windows and Linux).
 
 	`Context3DTilemap` writes four vertices per tile every frame - position and UV unrolled per
 	corner, plus alpha and an eight-float color transform repeated four times when those are
@@ -41,6 +41,10 @@ import openfl.display._internal.stats.DrawCallContext;
 	`glVertexAttribDivisor` and `glDrawElementsInstanced`. The CPU writes and uploads roughly a
 	quarter as much per tile, and there is still only one traversal of the tile tree because the
 	instance buffer grows as it fills rather than being sized in advance.
+
+	Windows and Linux both reach GL through the same dynamic extension loader in `lime`, so
+	`glVertexAttribDivisor` and `glDrawElementsInstanced` resolve identically on each. macOS is
+	excluded: its compatibility profile caps at GL 2.1, which predates instanced arrays.
 
 	This is the one place where the algorithm changes rather than just the structure, so it is
 	opt-in twice over: the driver must report instancing support, *and* the build must define
