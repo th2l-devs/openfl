@@ -127,6 +127,21 @@ import js.html.DivElement;
 @:access(openfl.text.TextFormat)
 class TextField extends InteractiveObject
 {
+	/**
+		Background drawn behind selected characters, as 0xRRGGBB. Flash hard-codes this to black;
+		this is exposed so an application can match its own chrome.
+
+		@default 0x000000
+	**/
+	public static var selectionColor:Int = 0x000000;
+
+	/**
+		Color selected characters are drawn in, as 0xRRGGBB.
+
+		@default 0xFFFFFF
+	**/
+	public static var selectedTextColor:Int = 0xFFFFFF;
+
 	@:noCompletion private static var __defaultTextFormat:TextFormat;
 	@:noCompletion private static var __missingFontWarning:Map<String, Bool> = new Map();
 
