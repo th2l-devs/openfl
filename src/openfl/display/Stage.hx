@@ -1832,6 +1832,10 @@ class Stage extends DisplayObjectContainer #if lime implements IModule #end
 					var tabStack = new Array<InteractiveObject>();
 
 					__tabTest(tabStack);
+					if (InteractiveObject.__tabEnabledCount > 0)
+					{
+						__tabTest(tabStack);
+					}
 
 					var nextIndex = -1;
 					var nextObject:InteractiveObject = null;

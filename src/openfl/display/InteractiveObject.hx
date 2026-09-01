@@ -1195,6 +1195,7 @@ class InteractiveObject extends DisplayObject
 	@:noCompletion private var __tabEnabled:Null<Bool>;
 	@:noCompletion private var __tabIndex:Int;
 
+	@:noCompletion private static var __tabEnabledCount:Int = 0;
 	#if openfljs
 	@:noCompletion private static function __init__()
 	{
@@ -1302,6 +1303,8 @@ class InteractiveObject extends DisplayObject
 	{
 		if (__tabEnabled != value)
 		{
+			var wasEnabled = __tabEnabled == true;
+			if (wasEnabled != value) InteractiveObject.__tabEnabledCount += value ? 1 : -1;
 			__tabEnabled = value;
 
 			dispatchEvent(new Event(Event.TAB_ENABLED_CHANGE, true, false));
