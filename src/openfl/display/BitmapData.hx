@@ -199,6 +199,7 @@ class BitmapData implements IBitmapDrawable
 	// @:noCompletion private var __vertexBufferColorTransform:ColorTransform;
 	// @:noCompletion private var __vertexBufferAlpha:Float;
 	@:noCompletion private var __framebuffer:GLFramebuffer;
+	@:noCompletion private var __hasSharedTexture:Bool;
 	@SuppressWarnings("checkstyle:Dynamic") @:noCompletion private var __framebufferContext:#if lime RenderContext #else Dynamic #end;
 	@:noCompletion private var __indexBuffer:IndexBuffer3D;
 	@SuppressWarnings("checkstyle:Dynamic") @:noCompletion private var __indexBufferContext:#if lime RenderContext #else Dynamic #end;
@@ -404,6 +405,12 @@ class BitmapData implements IBitmapDrawable
 
 	/**
 		Returns a new BitmapData object that is a clone of the original instance with an exact copy of the contained bitmap.
+
+		When the BitmapData is not readable, the texture becomes a shared resource between the original and the cloned
+		instance. In this case, the texture will not be disposed of automatically when either BitmapData instance is
+		disposed. To properly manage the texture's lifecycle, `BitmapData.getTexture()` should be called, and the
+		texture should be disposed of manually.
+
 		@return		A new BitmapData object that is identical to the original.
 	**/
 	public function clone():BitmapData
@@ -430,6 +437,9 @@ class BitmapData implements IBitmapDrawable
 			bitmapData.__texture = __texture;
 			bitmapData.__textureContext = __textureContext;
 			bitmapData.__isValid = true;
+			bitmapData.__hasSharedTexture = true;
+
+			__hasSharedTexture = true;
 		}
 		else
 		{
@@ -784,28 +794,14 @@ class BitmapData implements IBitmapDrawable
 		__vertexBuffer = null;
 		__framebuffer = null;
 		__framebufferContext = null;
+
+		if (!__hasSharedTexture && __texture != null)
+		{
+			__texture.dispose();
+		}
+
 		__texture = null;
 		__textureContext = null;
-
-		// if (__texture != null) {
-		//
-		// var renderer = @:privateAccess Lib.current.stage.__renderer;
-		//
-		// if(renderer != null) {
-		//
-		// var renderer = @:privateAccess renderer.renderer;
-		// var gl = renderer.__gl;
-		//
-		// if (gl != null) {
-		//
-		// gl.deleteTexture (__texture);
-		// __texture = null;
-		//
-		// }
-		//
-		// }
-		//
-		// }
 	}
 
 	/**
@@ -1383,6 +1379,11 @@ class BitmapData implements IBitmapDrawable
 		BitmapData instance will hardware-only, and the `readable` property will
 		be false, meaning that some operations will not be permitted.
 
+		When a BitmapData instance is created in this manner, the texture becomes a shared resource between the
+		original Texture/RectangleTexture and the BitmapData instance. As a result, the texture will not be
+		automatically disposed of when the BitmapData instance is disposed. To properly manage the texture's
+		lifecycle, you should dispose of the texture manually when it is no longer needed.
+
 		This method is not supported by the Flash target.
 
 		@param	texture	A Texture or RectangleTexture instance
@@ -1395,6 +1396,7 @@ class BitmapData implements IBitmapDrawable
 		if (texture == null) return null;
 
 		var bitmapData = new BitmapData(0, 0, true, 0);
+		bitmapData.__hasSharedTexture = true;
 		bitmapData.width = texture.__width;
 		bitmapData.height = texture.__height;
 		bitmapData.rect = new Rectangle(0, 0, texture.__width, texture.__height);
@@ -2254,6 +2256,10 @@ class BitmapData implements IBitmapDrawable
 
 		Get a hardware texture representing this BitmapData instance
 
+		When using this method, the resulting texture becomes a shared resource. It will not be automatically
+		disposed of when the BitmapData instance is disposed. To manage the texture's lifecycle properly, you must
+		dispose of the texture manually when it is no longer needed.
+
 		@param	context	A Context3D instance
 		@returns	A Texture or RectangleTexture instance
 	**/
@@ -2323,6 +2329,8 @@ class BitmapData implements IBitmapDrawable
 			image = null;
 		}
 		#end
+
+		__hasSharedTexture = true;
 
 		return __texture;
 	}
