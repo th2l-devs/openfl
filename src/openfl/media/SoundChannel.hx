@@ -705,13 +705,16 @@ import lime.utils.Int16Array;
 	#if lime
 	@:noCompletion private static function __readSample(data:UInt8Array, offset:Int, bitsPerSample:Int):Float
 	{
+		var b0:Int = data[offset];
+
 		if (bitsPerSample == 8)
 		{
 			// 8-bit PCM is unsigned and centered on 128
-			return (data[offset] - 128) / 128.0;
+			return (b0 - 128) / 128.0;
 		}
 
-		var value = data[offset] | (data[offset + 1] << 8);
+		var b1:Int = data[offset + 1];
+		var value = b0 | (b1 << 8);
 		if (value >= 32768) value -= 65536;
 		return value / 32768.0;
 	}
