@@ -216,6 +216,7 @@ class BitmapData implements IBitmapDrawable
 	@:noCompletion private var __texture:TextureBase;
 	@SuppressWarnings("checkstyle:Dynamic") @:noCompletion private var __textureContext:#if lime RenderContext #else Dynamic #end;
 	@:noCompletion private var __textureHeight:Int;
+	@:noCompletion private var __textureMipmapsGenerated:Bool;
 	@:noCompletion private var __textureVersion:Int;
 	@:noCompletion private var __textureWidth:Int;
 	@:noCompletion private var __transform:Matrix;
@@ -436,6 +437,7 @@ class BitmapData implements IBitmapDrawable
 			bitmapData.__framebufferContext = __framebufferContext;
 			bitmapData.__texture = __texture;
 			bitmapData.__textureContext = __textureContext;
+			bitmapData.__textureMipmapsGenerated = __textureMipmapsGenerated;
 			bitmapData.__isValid = true;
 			bitmapData.__hasSharedTexture = true;
 
@@ -2261,9 +2263,17 @@ class BitmapData implements IBitmapDrawable
 		dispose of the texture manually when it is no longer needed.
 
 		@param	context	A Context3D instance
+		@param	mipmaps	Generate a full mipmap chain for the texture (`glGenerateMipmap`),
+						enabling `MIPLINEAR`/`MIPNEAREST` sampling for it. Generation happens at
+						most once per upload - calling with `mipmaps = false` afterward (as the
+						normal render path does) does not regenerate or discard an existing
+						chain, it simply skips asking for one. Level 0 only; if you never upload
+						new pixels after this, the chain is created exactly once.
+		@param	mipLodBias	Passed through to `TextureBase.generateMipmaps()` - see its docs.
+		@param	mipAnisotropy	Passed through to `TextureBase.generateMipmaps()` - see its docs.
 		@returns	A Texture or RectangleTexture instance
 	**/
-	@:dox(hide) public function getTexture(context:Context3D):TextureBase
+	@:dox(hide) public function getTexture(context:Context3D, mipmaps:Bool = false, mipLodBias:Float = 0, mipAnisotropy:Float = 1):TextureBase
 	{
 		if (!__isValid) return null;
 
@@ -2278,6 +2288,7 @@ class BitmapData implements IBitmapDrawable
 			// gl.texParameteri (gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 			// gl.texParameteri (gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
 			__textureVersion = -1;
+			__textureMipmapsGenerated = false;
 		}
 
 		#if lime
@@ -2321,6 +2332,15 @@ class BitmapData implements IBitmapDrawable
 
 			__textureWidth = textureImage.buffer.width;
 			__textureHeight = textureImage.buffer.height;
+
+			// Level 0 just changed, so any previously generated chain is now stale
+			__textureMipmapsGenerated = false;
+		}
+
+		if (mipmaps && !__textureMipmapsGenerated && __texture != null)
+		{
+			__texture.generateMipmaps(mipLodBias, mipAnisotropy);
+			__textureMipmapsGenerated = true;
 		}
 
 		if (!readable && image != null)
