@@ -41,6 +41,7 @@ class Context3DGraphics
 	private static var tempIndicesVector:Vector<Int> = new Vector<Int>();
 	private static var tempUvtVector:Vector<Float> = new Vector<Float>();
 	private static var tempScale9VerticesVector:Vector<Float>;
+	private static var tempRects:Array<Rectangle> = [];
 
 	private static function buildBuffer(graphics:Graphics, renderer:OpenGLRenderer):Void
 	{
@@ -522,6 +523,31 @@ class Context3DGraphics
 		}
 	}
 
+	private static function cleanupTempRects():Void
+	{
+		for (rect in tempRects)
+		{
+			Rectangle.__pool.release(rect);
+		}
+		#if haxe4
+		tempRects.resize(0);
+		#else
+		tempRects.splice(0, tempRects.length);
+		#end
+	}
+
+	private static function intersectsTempRects(rect:Rectangle):Bool
+	{
+		for (other in tempRects)
+		{
+			if (other.intersects(rect))
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
 	private static function isCompatible(graphics:Graphics):Bool
 	{
 		#if (openfl_force_sw_graphics || force_sw_graphics)
@@ -537,11 +563,15 @@ class Context3DGraphics
 
 		var data = new DrawCommandReader(graphics.__commands);
 		var hasColorFill = false, hasBitmapFill = false, hasShaderFill = false;
-		// only one filled shape per fill: two shapes might intersect and need a cutout,
-		// and DRAW_RECT's bitmap-fill vertex/UV build below assumes a single rect with
-		// no per-rect texture mapping, so a second rect would just sample the wrong
-		// region. Fall back to software rendering for either case.
-		var hasDrawnFilledShape = false;
+
+		// for each fill, allow drawing only shapes with no intersection because
+		// that would require a cutout. fall back to software for intersections
+
+		// for drawRect(), remember the bounds of each rectangle
+		cleanupTempRects();
+
+		// drawTriangles() or drawQuads(): for simplicity, we'll allow only one per fill
+		var hasDrawnComplex = false;
 
 		for (type in graphics.__commands.types)
 		{
@@ -552,61 +582,71 @@ class Context3DGraphics
 					if (c.matrix != null)
 					{
 						data.destroy();
+						cleanupTempRects();
 						return false;
 					}
 					hasBitmapFill = true;
 					hasColorFill = false;
 					hasShaderFill = false;
-					hasDrawnFilledShape = false;
+					hasDrawnComplex = false;
+					cleanupTempRects();
 					data.skip(type);
 
 				case BEGIN_FILL:
 					hasBitmapFill = false;
 					hasColorFill = true;
 					hasShaderFill = false;
-					hasDrawnFilledShape = false;
+					hasDrawnComplex = false;
+					cleanupTempRects();
 					data.skip(type);
 
 				case BEGIN_SHADER_FILL:
 					hasBitmapFill = false;
 					hasColorFill = false;
 					hasShaderFill = true;
-					hasDrawnFilledShape = false;
+					hasDrawnComplex = false;
+					cleanupTempRects();
 					data.skip(type);
 
 				case DRAW_QUADS:
-					if (!hasDrawnFilledShape && (hasColorFill || hasBitmapFill || hasShaderFill))
+					if (!hasDrawnComplex && tempRects.length == 0 && (hasColorFill || hasBitmapFill || hasShaderFill))
 					{
-						hasDrawnFilledShape = true;
+						hasDrawnComplex = true;
 						data.skip(type);
 					}
 					else
 					{
 						data.destroy();
+						cleanupTempRects();
 						return false;
 					}
 
 				case DRAW_RECT:
-					if (!hasDrawnFilledShape && (hasColorFill || hasBitmapFill || hasShaderFill))
+					var c = data.readDrawRect();
+					var rect = Rectangle.__pool.get();
+					rect.setTo(c.x, c.y, c.width, c.height);
+					if (!hasDrawnComplex && !intersectsTempRects(rect) && (hasColorFill || hasBitmapFill || hasShaderFill))
 					{
-						hasDrawnFilledShape = true;
-						data.skip(type);
+						tempRects.push(rect);
 					}
 					else
 					{
+						Rectangle.__pool.release(rect);
 						data.destroy();
+						cleanupTempRects();
 						return false;
 					}
 
 				case DRAW_TRIANGLES:
-					if (!hasDrawnFilledShape && (hasColorFill || hasBitmapFill || hasShaderFill))
+					if (!hasDrawnComplex && tempRects.length == 0 && (hasColorFill || hasBitmapFill || hasShaderFill))
 					{
-						hasDrawnFilledShape = true;
+						hasDrawnComplex = true;
 						data.skip(type);
 					}
 					else
 					{
 						data.destroy();
+						cleanupTempRects();
 						return false;
 					}
 
@@ -615,6 +655,7 @@ class Context3DGraphics
 					if (c.thickness != null)
 					{
 						data.destroy();
+						cleanupTempRects();
 						return false;
 					}
 					data.skip(type);
@@ -623,7 +664,8 @@ class Context3DGraphics
 					hasBitmapFill = false;
 					hasColorFill = false;
 					hasShaderFill = false;
-					hasDrawnFilledShape = false;
+					hasDrawnComplex = false;
+					cleanupTempRects();
 					data.skip(type);
 
 				case MOVE_TO:
@@ -634,11 +676,13 @@ class Context3DGraphics
 
 				default:
 					data.destroy();
+					cleanupTempRects();
 					return false;
 			}
 		}
 
 		data.destroy();
+		cleanupTempRects();
 		return true;
 	}
 
