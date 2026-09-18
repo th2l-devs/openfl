@@ -2,19 +2,19 @@ package;
 
 #if !flash
 import openfl.display.OpenGLRenderer;
-import openfl.display._internal.Context3DTextField;
 import openfl.geom.Matrix;
 import utest.Assert;
 import utest.Test;
 
 /**
-	Regression test for `Context3DTextField.__computePixelRatio`: the helper
-	that picks the resolution at which a TextField's bitmap is rasterized
-	(via the software CairoRenderer / CanvasRenderer) before being composited
-	by the GL renderer. The naive implementation reads only
-	`renderer.__pixelRatio` (= `window.scale`), which ignores any scale
-	applied higher up in the display tree or by a draw matrix. This test
-	exercises the four meaningful inputs to the helper.
+	Regression test for `DisplayObjectRenderer.__effectivePixelRatio()`: the
+	helper that picks the resolution at which software-rasterized content
+	(TextField glyphs, and a TextField's Graphics-drawn border/background) is
+	rasterized before being composited by the GL renderer. The naive
+	implementation reads only `renderer.__pixelRatio` (= `window.scale`),
+	which ignores any scale applied higher up in the display tree or by a
+	draw matrix. This test exercises the four meaningful inputs to the
+	helper.
 
 	The renderer instance is created with `Type.createEmptyInstance` so we
 	don't have to stand up a real `Context3D` for a pure-math test.
@@ -33,7 +33,7 @@ class Context3DTextFieldPixelRatioTest extends Test
 	{
 		// Retina screen, identity transform → effective = window.scale.
 		var renderer = makeRenderer(2.0, new Matrix());
-		Assert.equals(2.0, @:privateAccess Context3DTextField.__computePixelRatio(renderer));
+		Assert.equals(2.0, @:privateAccess renderer.__effectivePixelRatio());
 	}
 
 	public function test_returnsTransformScaleWhenLargerThanPixelRatio()
@@ -44,7 +44,7 @@ class Context3DTextFieldPixelRatioTest extends Test
 		var m = new Matrix();
 		m.scale(2.0, 2.0);
 		var renderer = makeRenderer(1.0, m);
-		Assert.equals(2.0, @:privateAccess Context3DTextField.__computePixelRatio(renderer));
+		Assert.equals(2.0, @:privateAccess renderer.__effectivePixelRatio());
 	}
 
 	public function test_returnsPixelRatioWhenTransformIsDownscaling()
@@ -54,7 +54,7 @@ class Context3DTextFieldPixelRatioTest extends Test
 		var m = new Matrix();
 		m.scale(0.5, 0.5);
 		var renderer = makeRenderer(2.0, m);
-		Assert.equals(2.0, @:privateAccess Context3DTextField.__computePixelRatio(renderer));
+		Assert.equals(2.0, @:privateAccess renderer.__effectivePixelRatio());
 	}
 
 	public function test_picksLargerAxisFromAnisotropicTransform()
@@ -63,7 +63,7 @@ class Context3DTextFieldPixelRatioTest extends Test
 		var m = new Matrix();
 		m.scale(3.0, 1.0);
 		var renderer = makeRenderer(1.0, m);
-		Assert.equals(3.0, @:privateAccess Context3DTextField.__computePixelRatio(renderer));
+		Assert.equals(3.0, @:privateAccess renderer.__effectivePixelRatio());
 	}
 
 	public function test_handlesRotationCorrectly()
@@ -74,7 +74,7 @@ class Context3DTextFieldPixelRatioTest extends Test
 		m.scale(2.0, 2.0);
 		m.rotate(Math.PI / 4);
 		var renderer = makeRenderer(1.0, m);
-		var actual:Float = @:privateAccess Context3DTextField.__computePixelRatio(renderer);
+		var actual:Float = @:privateAccess renderer.__effectivePixelRatio();
 		Assert.isTrue(Math.abs(actual - 2.0) < 1e-9);
 	}
 
@@ -83,13 +83,17 @@ class Context3DTextFieldPixelRatioTest extends Test
 		// Defensive: the helper falls back to pixelRatio if worldTransform
 		// is null (e.g. renderer setup mid-construction).
 		var renderer = makeRenderer(2.0, null);
-		Assert.equals(2.0, @:privateAccess Context3DTextField.__computePixelRatio(renderer));
+		Assert.equals(2.0, @:privateAccess renderer.__effectivePixelRatio());
 	}
 }
 #else
+import utest.Assert;
 import utest.Test;
 class Context3DTextFieldPixelRatioTest extends Test
 {
-	public function test_skippedOnFlash() {}
+	public function test_skippedOnFlash()
+	{
+		Assert.pass();
+	}
 }
 #end

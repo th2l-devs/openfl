@@ -76,6 +76,32 @@ class DisplayObjectRenderer extends EventDispatcher
 		return value * __worldAlpha;
 	}
 
+	/**
+		Effective pixel ratio for rasterizing software-drawn content (text, vector
+		shapes) at the resolution it will actually be displayed at.
+
+		`__pixelRatio` alone is `window.scale` only - it ignores any scale applied
+		higher up in the display tree (e.g. a parent container scaled by 2x) or by
+		a draw-time matrix (e.g. `BitmapData.draw(target, matrix)` with a 2x
+		matrix). Rasterizing at `__pixelRatio` alone then compositing at the full
+		effective scale upscales a 1x bitmap, which looks blurry.
+
+		Reading the scale magnitude from `__worldTransform` (the full effective
+		transform for the current draw) rasterizes at the resolution the content
+		will actually be displayed at. Takes the max of `__pixelRatio` and the
+		world transform scale so a downscaling transform doesn't reduce
+		rasterization below the device DPI.
+	**/
+	@:noCompletion private function __effectivePixelRatio():Float
+	{
+		var wt = __worldTransform;
+		if (wt == null) return __pixelRatio;
+		var sx = Math.sqrt(wt.a * wt.a + wt.b * wt.b);
+		var sy = Math.sqrt(wt.c * wt.c + wt.d * wt.d);
+		var wtScale = sx > sy ? sx : sy;
+		return wtScale > __pixelRatio ? wtScale : __pixelRatio;
+	}
+
 	@:noCompletion private function __getColorTransform(value:ColorTransform):ColorTransform
 	{
 		if (__worldColorTransform != null)
