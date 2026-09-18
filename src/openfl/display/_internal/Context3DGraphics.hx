@@ -706,13 +706,18 @@ class Context3DGraphics
 
 			// }
 
-			renderer.__softwareRenderer.__pixelRatio = renderer.__pixelRatio;
+			// a TextField's border/background goes through this same software
+			// fallback as its glyphs (Context3DTextField) do - rasterize both at
+			// the same effective scale so a scaled TextField doesn't end up with
+			// crisp text next to a blurry border/background.
+			var isTextField = graphics.__owner.__drawableType == TEXT_FIELD;
+			renderer.__softwareRenderer.__pixelRatio = isTextField ? renderer.__effectivePixelRatio() : renderer.__pixelRatio;
 
 			var cacheTransform = renderer.__softwareRenderer.__worldTransform;
 
 			// TODO: Embed high-DPI graphics logic in the software renderer?
 			// TODO: Unify the software renderer matrix behavior?
-			if (graphics.__owner.__drawableType == TEXT_FIELD #if (openfl_disable_hdpi || openfl_disable_hdpi_graphics) || true #end)
+			if (isTextField #if (openfl_disable_hdpi || openfl_disable_hdpi_graphics) || true #end)
 			{
 				renderer.__softwareRenderer.__worldTransform = Matrix.__identity;
 			}
