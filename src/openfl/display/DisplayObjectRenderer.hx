@@ -498,7 +498,15 @@ class DisplayObjectRenderer extends EventDispatcher
 			{
 				// Should we retain these longer?
 
-				displayObject.__cacheBitmapData = displayObject.__cacheBitmap.bitmapData;
+				// __cacheBitmap can be nulled between the check above and here (TOCTOU) - bail out if so.
+				var cacheBitmap = displayObject.__cacheBitmap;
+				if (cacheBitmap == null)
+				{
+					ColorTransform.__pool.release(colorTransform);
+					return false;
+				}
+
+				displayObject.__cacheBitmapData = cacheBitmap.bitmapData;
 				displayObject.__cacheBitmapData2 = null;
 				displayObject.__cacheBitmapData3 = null;
 			}
