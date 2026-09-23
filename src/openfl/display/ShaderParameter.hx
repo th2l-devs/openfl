@@ -183,6 +183,16 @@ import openfl.display3D.Context3D;
 		}
 	}
 
+	@:noCompletion private inline function __ensureUniformMatrix():Void
+	{
+		#if lime
+		if (__uniformMatrix == null && __arrayLength > 1)
+		{
+			__uniformMatrix = new Float32Array(__arrayLength * __arrayLength);
+		}
+		#end
+	}
+
 	@:noCompletion private function __updateGL(context:Context3D, overrideValue:Array<T> = null):Void
 	{
 		if (index < 0) return;
@@ -198,6 +208,8 @@ import openfl.display3D.Context3D;
 
 		if (__isUniform)
 		{
+			__ensureUniformMatrix();
+
 			if (value != null && value.length >= __length)
 			{
 				switch (type)
@@ -428,6 +440,8 @@ import openfl.display3D.Context3D;
 
 		if (__isUniform)
 		{
+			__ensureUniformMatrix();
+
 			if (length >= __length)
 			{
 				switch (type)

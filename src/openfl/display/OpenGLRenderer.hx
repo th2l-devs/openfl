@@ -558,17 +558,20 @@ class OpenGLRenderer extends DisplayObjectRenderer
 		return __values;
 	}
 
+	@:noCompletion private function __bindShaderContext(shader:Shader):Void
+	{
+		if (shader.__context == __context3D && shader.program != null) return;
+
+		shader.__context = __context3D;
+		shader.program = null;
+		shader.__init();
+	}
+
 	@:noCompletion private function __initShader(shader:Shader):Shader
 	{
 		if (shader != null)
 		{
-			// TODO: Change of GL context?
-
-			if (shader.__context == null)
-			{
-				shader.__context = __context3D;
-				shader.__init();
-			}
+			__bindShaderContext(shader);
 
 			// currentShader = shader;
 			return shader;
@@ -581,13 +584,7 @@ class OpenGLRenderer extends DisplayObjectRenderer
 	{
 		if (shader != null)
 		{
-			// TODO: Change of GL context?
-
-			if (shader.__context == null)
-			{
-				shader.__context = __context3D;
-				shader.__init();
-			}
+			__bindShaderContext(shader);
 
 			// currentShader = shader;
 			return shader;
@@ -600,13 +597,7 @@ class OpenGLRenderer extends DisplayObjectRenderer
 	{
 		if (shader != null)
 		{
-			// TODO: Change of GL context?
-
-			if (shader.__context == null)
-			{
-				shader.__context = __context3D;
-				shader.__init();
-			}
+			__bindShaderContext(shader);
 
 			// currentShader = shader;
 			return shader;
