@@ -136,6 +136,8 @@ class BitmapData implements IBitmapDrawable
 {
 	@:noCompletion private static inline var VERTEX_BUFFER_STRIDE:Int = 14;
 	@:noCompletion private static var __supportsBGRA:Null<Bool> = null;
+	@:noCompletion private static var __drawRenderer:OpenGLRenderer;
+	@:noCompletion private static var __drawRendererBusy:Bool = false;
 	@:noCompletion private static var __textureFormat:Int;
 	@:noCompletion private static var __textureInternalFormat:Int;
 	#if lime
@@ -960,7 +962,7 @@ class BitmapData implements IBitmapDrawable
 				_colorTransform.__combine(colorTransform);
 			}
 
-			var renderer = new OpenGLRenderer(Lib.current.stage.context3D, this);
+			var renderer = __acquireDrawRenderer(Lib.current.stage.context3D);
 			renderer.__allowSmoothing = smoothing;
 			renderer.__pixelRatio = #if openfl_disable_hdpi 1 #else Lib.current.stage.window.scale #end;
 			renderer.__overrideBlendMode = blendMode;
@@ -983,6 +985,8 @@ class BitmapData implements IBitmapDrawable
 				renderer.__popMaskRect();
 				Matrix.__pool.release(clipMatrix);
 			}
+
+			if (renderer == __drawRenderer) __drawRendererBusy = false;
 		}
 		else
 		{
@@ -3209,6 +3213,28 @@ class BitmapData implements IBitmapDrawable
 
 		image.dirty = true;
 		image.version++;
+	}
+
+	@:noCompletion private function __acquireDrawRenderer(context:Context3D):OpenGLRenderer
+	{
+		var cached = __drawRenderer;
+		if (!__drawRendererBusy && cached != null && cached.__context3D == context && cached.__context == context.__context)
+		{
+			cached.__numClipRects = 0;
+			cached.__stencilReference = 0;
+			if (cached.__maskObjects.length > 0) cached.__maskObjects.splice(0, cached.__maskObjects.length);
+			cached.__setRenderTarget(this);
+			__drawRendererBusy = true;
+			return cached;
+		}
+
+		var renderer = new OpenGLRenderer(context, this);
+		if (!__drawRendererBusy)
+		{
+			__drawRenderer = renderer;
+			__drawRendererBusy = true;
+		}
+		return renderer;
 	}
 
 	@:noCompletion private function __drawGL(source:IBitmapDrawable, renderer:OpenGLRenderer):Void
