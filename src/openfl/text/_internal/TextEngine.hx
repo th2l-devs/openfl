@@ -124,7 +124,7 @@ class TextEngine
 	public function new(textField:TextField)
 	{
 		#if !openfl_disable_text_measurement_cache
-		__shapeCache = new ShapeCache();
+		__shapeCache = ShapeCache.shared();
 		#end
 		this.textField = textField;
 
@@ -1747,7 +1747,7 @@ class TextEngine
 						if (breakIndex - layoutGroup.startIndex - layoutGroup.positions.length < 0)
 						{
 							// Newline has no size
-							layoutGroup.positions.push(#if (js && html5) 0.0 #else null #end);
+							layoutGroup.positions = layoutGroup.positions.concat([#if (js && html5) 0.0 #else null #end]);
 						}
 
 						textIndex = breakIndex + 1;
