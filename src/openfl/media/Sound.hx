@@ -791,6 +791,11 @@ class Sound extends EventDispatcher
 				var samples = (__buffer.data.length * 8.0) / (__buffer.channels * __buffer.bitsPerSample);
 				return Std.int(samples / __buffer.sampleRate * 1000);
 			}
+			else if (@:privateAccess __buffer.__srcByteLength > 0)
+			{
+				var samples = (@:privateAccess __buffer.__srcByteLength * 8.0) / (__buffer.channels * __buffer.bitsPerSample);
+				return Std.int(samples / __buffer.sampleRate * 1000);
+			}
 			#if (lime >= "8.4.0")
 			else if (__buffer.__srcSDLSoundDuration > 0)
 			{

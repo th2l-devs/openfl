@@ -365,7 +365,12 @@ import lime.utils.Int16Array;
 		}
 
 		var buffer = __sound.__buffer;
-		if (buffer == null || buffer.data == null || buffer.data.length == 0) return;
+		if (buffer == null) return;
+		if (buffer.data == null || buffer.data.length == 0)
+		{
+			__updateLevelsFromEnvelope(buffer);
+			return;
+		}
 
 		var sampleRate = buffer.sampleRate;
 		var channels = buffer.channels;
@@ -468,6 +473,70 @@ import lime.utils.Int16Array;
 		__rightPeak = __rightLevel * volume * (pan < 0 ? 1 + pan : 1);
 		#end
 	}
+
+	#if lime
+	@:noCompletion private function __updateLevelsFromEnvelope(buffer:lime.media.AudioBuffer):Void
+	{
+		var env:haxe.io.Bytes = @:privateAccess buffer.__srcEnvelope;
+		var block:Int = @:privateAccess buffer.__srcEnvelopeBlock;
+		if (env == null || block <= 0 || buffer.sampleRate <= 0) return;
+
+		var time = position;
+		if (time == __peakTime) return;
+
+		var elapsed = time - __peakTime;
+		var continuous = (__peakTime >= 0 && elapsed > 0 && elapsed < LEVEL_RESET_MS);
+		__peakTime = time;
+
+		var blocks = env.length >> 2;
+		var windowFrames = (LEVEL_WINDOW_MS / 1000) * buffer.sampleRate;
+		var center = (time / 1000) * buffer.sampleRate;
+		var first = Std.int((center - windowFrames / 2) / block);
+		var last = Std.int((center + windowFrames / 2) / block);
+		if (first < 0) first = 0;
+		if (last >= blocks) last = blocks - 1;
+
+		if (last < first)
+		{
+			__leftLevel = 0;
+			__rightLevel = 0;
+			__leftPeak = 0;
+			__rightPeak = 0;
+			return;
+		}
+
+		var leftSum = 0.0;
+		var rightSum = 0.0;
+		for (i in first...last + 1)
+		{
+			var l = env.getUInt16(i << 2) / 65535;
+			var r = env.getUInt16((i << 2) + 2) / 65535;
+			leftSum += l * l;
+			rightSum += r * r;
+		}
+		var count = last - first + 1;
+		var left = Math.sqrt(leftSum / count);
+		var right = Math.sqrt(rightSum / count);
+
+		if (continuous)
+		{
+			__leftLevel = __smoothLevel(__leftLevel, left, elapsed);
+			__rightLevel = __smoothLevel(__rightLevel, right, elapsed);
+		}
+		else
+		{
+			__leftLevel = left;
+			__rightLevel = right;
+		}
+
+		var volume = SoundMixer.__soundTransform.volume * __soundTransform.volume;
+		var pan = SoundMixer.__soundTransform.pan + __soundTransform.pan;
+		if (pan < -1) pan = -1;
+		if (pan > 1) pan = 1;
+		__leftPeak = __leftLevel * volume * (pan > 0 ? 1 - pan : 1);
+		__rightPeak = __rightLevel * volume * (pan < 0 ? 1 + pan : 1);
+	}
+	#end
 
 	/**
 		Per-band frequency magnitudes (0..1) around the current playback position, via a
