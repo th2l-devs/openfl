@@ -12,7 +12,7 @@ import haxe.ds.StringMap;
 @SuppressWarnings("checkstyle:FieldDocComment")
 class ShapeCache
 {
-	public static var maxEntries:Int = 8192;
+	public static var maxEntries:Int = 2048;
 
 	private static var __shared:ShapeCache;
 
