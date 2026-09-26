@@ -51,6 +51,7 @@ class TextureBase extends EventDispatcher
 	@:noCompletion private var __optimizeForRenderToTexture:Bool;
 	// private var __outputTextureMemoryUsage:Bool = false;
 	@:noCompletion private var __samplerState:SamplerState;
+	@:noCompletion private var __mipComplete:Bool = false;
 	@:noCompletion private var __streamingLevels:Int;
 	@SuppressWarnings("checkstyle:Dynamic") @:noCompletion private var __textureContext:#if lime RenderContext #else Dynamic #end;
 	@:noCompletion private var __textureID:GLTexture;
@@ -204,6 +205,7 @@ class TextureBase extends EventDispatcher
 		var gl = __context.gl;
 		__context.__bindGLTexture2D(__textureID);
 		gl.generateMipmap(__textureTarget);
+		__markMipmaps(true);
 
 		#if !(js && html5)
 		// GL_TEXTURE_LOD_BIAS (core desktop GL; not exposed on WebGL)
@@ -342,6 +344,13 @@ class TextureBase extends EventDispatcher
 	}
 	#end
 
+	@:noCompletion private function __markMipmaps(complete:Bool):Void
+	{
+		if (__mipComplete == complete) return;
+		__mipComplete = complete;
+		__samplerState = null;
+	}
+
 	@:noCompletion private function __getTexture():GLTexture
 	{
 		return __textureID;
@@ -427,6 +436,8 @@ class TextureBase extends EventDispatcher
 		var format:Int;
 
 		if (__textureTarget != gl.TEXTURE_2D) return;
+
+		__markMipmaps(false);
 
 		if (image.buffer.bitsPerPixel == 1)
 		{

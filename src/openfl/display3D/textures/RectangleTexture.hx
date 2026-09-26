@@ -62,6 +62,7 @@ import openfl.utils.ByteArray;
 		{
 			var gl = __context.gl;
 
+			__markMipmaps(false);
 			__context.__bindGLTexture2D(__textureID);
 			gl.texImage2D(__textureTarget, 0, __internalFormat, __format, gl.UNSIGNED_BYTE, image.buffer.src);
 			__context.__bindGLTexture2D(null);
@@ -115,13 +116,23 @@ import openfl.utils.ByteArray;
 	{
 		var gl = __context.gl;
 
+		__markMipmaps(false);
 		__context.__bindGLTexture2D(__textureID);
 		gl.texImage2D(__textureTarget, 0, __internalFormat, __width, __height, 0, __format, gl.UNSIGNED_BYTE, data);
 		__context.__bindGLTexture2D(null);
 	}
 
+	@:noCompletion private static var __noMipState:SamplerState = new SamplerState();
+
 	@:noCompletion private override function __setSamplerState(state:SamplerState):Bool
 	{
+		if (!state.ignoreSampler && state.mipfilter != openfl.display3D.Context3DMipFilter.MIPNONE && !__mipComplete)
+		{
+			__noMipState.copyFrom(state);
+			__noMipState.mipfilter = openfl.display3D.Context3DMipFilter.MIPNONE;
+			state = __noMipState;
+		}
+
 		if (super.__setSamplerState(state))
 		{
 			var gl = __context.gl;
