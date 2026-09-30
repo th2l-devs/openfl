@@ -3223,6 +3223,9 @@ class BitmapData implements IBitmapDrawable
 			cached.__numClipRects = 0;
 			cached.__stencilReference = 0;
 			if (cached.__maskObjects.length > 0) cached.__maskObjects.splice(0, cached.__maskObjects.length);
+			cached.__currentShader = null;
+			cached.__currentShaderBuffer = null;
+			cached.__isolatedGroup = false;
 			cached.__setRenderTarget(this);
 			__drawRendererBusy = true;
 			return cached;
