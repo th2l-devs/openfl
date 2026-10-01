@@ -395,6 +395,8 @@ class DisplayObjectRenderer extends EventDispatcher
 			// TODO: Handle dimensions better if object has a scrollRect?
 
 			var bitmapWidth = 0, bitmapHeight = 0;
+			var exactSize = false;
+			if (hasFilters) for (f in displayObject.__filters) if (__isShaderFilter(f)) { exactSize = true; break; }
 			var filterWidth = 0, filterHeight = 0;
 			var offsetX = 0., offsetY = 0.;
 
@@ -418,7 +420,13 @@ class DisplayObjectRenderer extends EventDispatcher
 
 				if (displayObject.__cacheBitmapData != null)
 				{
-					if (filterWidth > displayObject.__cacheBitmapData.width || filterHeight > displayObject.__cacheBitmapData.height)
+					if (exactSize)
+					{
+						bitmapWidth = filterWidth;
+						bitmapHeight = filterHeight;
+						if (filterWidth != displayObject.__cacheBitmapData.width || filterHeight != displayObject.__cacheBitmapData.height) needRender = true;
+					}
+					else if (filterWidth > displayObject.__cacheBitmapData.width || filterHeight > displayObject.__cacheBitmapData.height)
 					{
 						bitmapWidth = Math.ceil(Math.max(filterWidth * 1.25, displayObject.__cacheBitmapData.width));
 						bitmapHeight = Math.ceil(Math.max(filterHeight * 1.25, displayObject.__cacheBitmapData.height));
@@ -451,8 +459,8 @@ class DisplayObjectRenderer extends EventDispatcher
 					var allowFramebuffer = (renderer.__type == OPENGL);
 
 					if (displayObject.__cacheBitmapData == null
-						|| bitmapWidth > displayObject.__cacheBitmapData.width
-						|| bitmapHeight > displayObject.__cacheBitmapData.height)
+						|| (exactSize ? bitmapWidth != displayObject.__cacheBitmapData.width : bitmapWidth > displayObject.__cacheBitmapData.width)
+						|| (exactSize ? bitmapHeight != displayObject.__cacheBitmapData.height : bitmapHeight > displayObject.__cacheBitmapData.height))
 					{
 						displayObject.__cacheBitmapData = new BitmapData(bitmapWidth, bitmapHeight, true, bitmapColor);
 
@@ -654,8 +662,8 @@ class DisplayObjectRenderer extends EventDispatcher
 
 						// if (needSecondBitmapData) {
 						if (displayObject.__cacheBitmapData2 == null
-							|| bitmapWidth > displayObject.__cacheBitmapData2.width
-							|| bitmapHeight > displayObject.__cacheBitmapData2.height)
+							|| (exactSize ? bitmapWidth != displayObject.__cacheBitmapData2.width : bitmapWidth > displayObject.__cacheBitmapData2.width)
+							|| (exactSize ? bitmapHeight != displayObject.__cacheBitmapData2.height : bitmapHeight > displayObject.__cacheBitmapData2.height))
 						{
 							displayObject.__cacheBitmapData2 = new BitmapData(bitmapWidth, bitmapHeight, true, 0);
 						}
@@ -676,8 +684,8 @@ class DisplayObjectRenderer extends EventDispatcher
 						if (needCopyOfOriginal)
 						{
 							if (displayObject.__cacheBitmapData3 == null
-								|| bitmapWidth > displayObject.__cacheBitmapData3.width
-								|| bitmapHeight > displayObject.__cacheBitmapData3.height)
+								|| (exactSize ? bitmapWidth != displayObject.__cacheBitmapData3.width : bitmapWidth > displayObject.__cacheBitmapData3.width)
+								|| (exactSize ? bitmapHeight != displayObject.__cacheBitmapData3.height : bitmapHeight > displayObject.__cacheBitmapData3.height))
 							{
 								displayObject.__cacheBitmapData3 = new BitmapData(bitmapWidth, bitmapHeight, true, 0);
 							}
@@ -784,8 +792,8 @@ class DisplayObjectRenderer extends EventDispatcher
 						{
 							if (displayObject.__cacheBitmapData2 == null
 								|| displayObject.__cacheBitmapData2.image == null
-								|| bitmapWidth > displayObject.__cacheBitmapData2.width
-								|| bitmapHeight > displayObject.__cacheBitmapData2.height)
+								|| (exactSize ? bitmapWidth != displayObject.__cacheBitmapData2.width : bitmapWidth > displayObject.__cacheBitmapData2.width)
+								|| (exactSize ? bitmapHeight != displayObject.__cacheBitmapData2.height : bitmapHeight > displayObject.__cacheBitmapData2.height))
 							{
 								displayObject.__cacheBitmapData2 = new BitmapData(bitmapWidth, bitmapHeight, true, 0);
 							}
@@ -804,8 +812,8 @@ class DisplayObjectRenderer extends EventDispatcher
 						{
 							if (displayObject.__cacheBitmapData3 == null
 								|| displayObject.__cacheBitmapData3.image == null
-								|| bitmapWidth > displayObject.__cacheBitmapData3.width
-								|| bitmapHeight > displayObject.__cacheBitmapData3.height)
+								|| (exactSize ? bitmapWidth != displayObject.__cacheBitmapData3.width : bitmapWidth > displayObject.__cacheBitmapData3.width)
+								|| (exactSize ? bitmapHeight != displayObject.__cacheBitmapData3.height : bitmapHeight > displayObject.__cacheBitmapData3.height))
 							{
 								displayObject.__cacheBitmapData3 = new BitmapData(bitmapWidth, bitmapHeight, true, 0);
 							}
