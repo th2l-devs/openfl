@@ -301,7 +301,11 @@ import lime.math.Vector2;
 		gl = __context.webgl;
 		#end
 
-		if (__contextState == null) __contextState = new Context3DState();
+		if (__contextState == null)
+		{
+			__contextState = new Context3DState();
+			gl.activeTexture(gl.TEXTURE0);
+		}
 		__state = new Context3DState();
 
 		#if lime
@@ -1260,6 +1264,7 @@ import lime.math.Vector2;
 		var complexBlend = __usingComplexBlend && __complexEquation != 0 && __contextState.__enableGLBlend;
 		var advanced = complexBlend && __beginComplexBlend();
 		gl.drawElements(gl.TRIANGLES, count, gl.UNSIGNED_SHORT, firstIndex * 2);
+		@:privateAccess openfl.display.RenderStats.__drawCalls++;
 		if (complexBlend) __endComplexBlend(advanced);
 	}
 
@@ -1994,31 +1999,124 @@ import lime.math.Vector2;
 		{
 			gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
 			__contextState.__currentGLFramebuffer = framebuffer;
+			@:privateAccess openfl.display.RenderStats.__targetSwitches++;
 		}
 	}
 
 	@:noCompletion private function __bindGLTexture2D(texture:GLTexture):Void
 	{
-		// TODO: Need to consider activeTexture ID
+		var bound = __contextState.__currentGLTexture2DPerUnit;
+		var unit = __contextState.__currentGLActiveTexture;
 
-		// if (#if openfl_disable_context_cache true #else __contextState.__currentGLTexture2D != texture #end) {
+		if (#if openfl_disable_context_cache true #else bound[unit] != texture #end)
+		{
+			gl.bindTexture(gl.TEXTURE_2D, texture);
+			bound[unit] = texture;
+			@:privateAccess openfl.display.RenderStats.__textureBinds++;
+		}
+		else
+		{
+			@:privateAccess openfl.display.RenderStats.__textureBindsSaved++;
+		}
 
-		gl.bindTexture(gl.TEXTURE_2D, texture);
 		__contextState.__currentGLTexture2D = texture;
-
-		// }
 	}
 
 	@:noCompletion private function __bindGLTextureCubeMap(texture:GLTexture):Void
 	{
-		// TODO: Need to consider activeTexture ID
+		var bound = __contextState.__currentGLTextureCubeMapPerUnit;
+		var unit = __contextState.__currentGLActiveTexture;
 
-		// if (#if openfl_disable_context_cache true #else __contextState.__currentGLTextureCubeMap != texture #end) {
+		if (#if openfl_disable_context_cache true #else bound[unit] != texture #end)
+		{
+			gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture);
+			bound[unit] = texture;
+			@:privateAccess openfl.display.RenderStats.__textureBinds++;
+		}
+		else
+		{
+			@:privateAccess openfl.display.RenderStats.__textureBindsSaved++;
+		}
 
-		gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture);
 		__contextState.__currentGLTextureCubeMap = texture;
+	}
 
-		// }
+	@:noCompletion private function __setGLActiveTexture(unit:Int):Void
+	{
+		if (#if openfl_disable_context_cache true #else __contextState.__currentGLActiveTexture != unit #end)
+		{
+			gl.activeTexture(gl.TEXTURE0 + unit);
+			__contextState.__currentGLActiveTexture = unit;
+		}
+	}
+
+	@:noCompletion private function __enableGLTexture2D():Void
+	{
+		#if (desktop && !html5)
+		var bit = 1 << __contextState.__currentGLActiveTexture;
+		if (#if openfl_disable_context_cache true #else (__contextState.__enabledGLTexture2DUnits & bit) == 0 #end)
+		{
+			gl.enable(gl.TEXTURE_2D);
+			__contextState.__enabledGLTexture2DUnits |= bit;
+		}
+		#end
+	}
+
+	@:noCompletion private function __disableGLTexture2D():Void
+	{
+		#if (desktop && !html5)
+		var bit = 1 << __contextState.__currentGLActiveTexture;
+		if (#if openfl_disable_context_cache true #else (__contextState.__enabledGLTexture2DUnits & bit) != 0 #end)
+		{
+			gl.disable(gl.TEXTURE_2D);
+			__contextState.__enabledGLTexture2DUnits &= ~bit;
+		}
+		#end
+	}
+
+	@:noCompletion private function __invalidateGLTexture(texture:GLTexture):Void
+	{
+		if (texture == null) return;
+
+		var bound = __contextState.__currentGLTexture2DPerUnit;
+		for (i in 0...bound.length)
+		{
+			if (bound[i] == texture) bound[i] = null;
+		}
+
+		bound = __contextState.__currentGLTextureCubeMapPerUnit;
+		for (i in 0...bound.length)
+		{
+			if (bound[i] == texture) bound[i] = null;
+		}
+
+		if (__contextState.__currentGLTexture2D == texture) __contextState.__currentGLTexture2D = null;
+		if (__contextState.__currentGLTextureCubeMap == texture) __contextState.__currentGLTextureCubeMap = null;
+	}
+
+	@:noCompletion private function __setGLViewport(x:Int, y:Int, width:Int, height:Int):Void
+	{
+		var state = __contextState;
+		if (#if openfl_disable_context_cache true #else state.__currentGLViewportX != x || state.__currentGLViewportY != y
+			|| state.__currentGLViewportWidth != width || state.__currentGLViewportHeight != height #end)
+		{
+			gl.viewport(x, y, width, height);
+			state.__currentGLViewportX = x;
+			state.__currentGLViewportY = y;
+			state.__currentGLViewportWidth = width;
+			state.__currentGLViewportHeight = height;
+			@:privateAccess openfl.display.RenderStats.__viewportChanges++;
+		}
+		else
+		{
+			@:privateAccess openfl.display.RenderStats.__viewportChangesSaved++;
+		}
+	}
+
+	@:noCompletion private function __invalidateGLViewport():Void
+	{
+		__contextState.__currentGLViewportWidth = -1;
+		__contextState.__currentGLViewportHeight = -1;
 	}
 
 	@:noCompletion private function __dispose():Void
@@ -2073,6 +2171,7 @@ import lime.math.Vector2;
 		var complexBlend = __usingComplexBlend && __complexEquation != 0 && __contextState.__enableGLBlend;
 		var advanced = complexBlend && __beginComplexBlend();
 		gl.drawArrays(gl.TRIANGLES, firstIndex, count);
+		@:privateAccess openfl.display.RenderStats.__drawCalls++;
 		if (complexBlend) __endComplexBlend(advanced);
 	}
 
@@ -2284,6 +2383,7 @@ import lime.math.Vector2;
 			}
 
 			__contextState.program = program;
+			@:privateAccess openfl.display.RenderStats.__shaderSwitches++;
 		}
 
 		if (program != null && program.__format == AGAL)
@@ -2388,41 +2488,45 @@ import lime.math.Vector2;
 				samplerState = __state.samplerStates[i];
 			}
 
-			gl.activeTexture(gl.TEXTURE0 + sampler);
-
 			if (texture != null)
 			{
-				// if (#if openfl_disable_context_cache true #else texture != __contextState.textures[i] #end) {
+				var glTexture = texture.__getTexture();
+				var cube = texture.__textureTarget != gl.TEXTURE_2D;
+				var bound = cube ? __contextState.__currentGLTextureCubeMapPerUnit[sampler] : __contextState.__currentGLTexture2DPerUnit[sampler];
+				var enabled = (__contextState.__enabledGLTexture2DUnits & (1 << sampler)) != 0;
 
-				// TODO: Cleaner approach?
-				if (texture.__textureTarget == gl.TEXTURE_2D)
+				if (bound != glTexture || !enabled || !samplerState.equals(texture.__samplerState))
 				{
-					__bindGLTexture2D(texture.__getTexture());
+					__setGLActiveTexture(sampler);
+
+					if (cube)
+					{
+						__bindGLTextureCubeMap(glTexture);
+					}
+					else
+					{
+						__bindGLTexture2D(glTexture);
+					}
+
+					__enableGLTexture2D();
+					texture.__setSamplerState(samplerState);
 				}
 				else
 				{
-					__bindGLTextureCubeMap(texture.__getTexture());
+					@:privateAccess openfl.display.RenderStats.__textureBindsSaved++;
 				}
 
-				#if (desktop && !html5)
-				// TODO: Cache?
-				gl.enable(gl.TEXTURE_2D);
-				#end
-
 				__contextState.textures[i] = texture;
-
-				// }
-
-				texture.__setSamplerState(samplerState);
 			}
-			else
+			else if (__contextState.__currentGLTexture2DPerUnit[sampler] != null)
 			{
+				__setGLActiveTexture(sampler);
 				__bindGLTexture2D(null);
 			}
 
 			if (__state.program != null && __state.program.__format == AGAL && samplerState.textureAlpha)
 			{
-				gl.activeTexture(gl.TEXTURE0 + sampler + 4);
+				__setGLActiveTexture(sampler + 4);
 
 				if (texture != null && texture.__alphaTexture != null)
 				{
@@ -2438,10 +2542,7 @@ import lime.math.Vector2;
 					texture.__alphaTexture.__setSamplerState(samplerState);
 					gl.uniform1i(__state.program.__agalAlphaSamplerEnabled[sampler].location, 1);
 
-					#if (desktop && !html5)
-					// TODO: Cache?
-					gl.enable(gl.TEXTURE_2D);
-					#end
+					__enableGLTexture2D();
 				}
 				else
 				{
@@ -2476,11 +2577,11 @@ import lime.math.Vector2;
 				#end
 				var x = __stage3D == null ? 0 : Std.int(__stage3D.x);
 				var y = Std.int((__stage.window.height * __stage.window.scale) - scaledBackBufferHeight - (__stage3D == null ? 0 : __stage3D.y));
-				gl.viewport(x, y, scaledBackBufferWidth, scaledBackBufferHeight);
+				__setGLViewport(x, y, scaledBackBufferWidth, scaledBackBufferHeight);
 			}
 			else
 			{
-				gl.viewport(0, 0, backBufferWidth, backBufferHeight);
+				__setGLViewport(0, 0, backBufferWidth, backBufferHeight);
 			}
 		}
 		else
@@ -2507,7 +2608,7 @@ import lime.math.Vector2;
 				height = cubeTexture.__size;
 			}
 
-			gl.viewport(0, 0, width, height);
+			__setGLViewport(0, 0, width, height);
 		}
 	}
 

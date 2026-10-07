@@ -159,6 +159,7 @@ class TextureBase extends EventDispatcher
 
 		if (__textureID != null)
 		{
+			__context.__invalidateGLTexture(__textureID);
 			gl.deleteTexture(__textureID);
 			__textureID = null;
 		}

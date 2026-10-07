@@ -130,6 +130,8 @@ class VertexBuffer3D
 
 		__context.__bindGLArrayBuffer(__id);
 		gl.bufferData(gl.ARRAY_BUFFER, data, __usage);
+		@:privateAccess openfl.display.RenderStats.__bufferUploads++;
+		@:privateAccess openfl.display.RenderStats.__bufferUploadBytes += data.byteLength;
 	}
 
 	/**

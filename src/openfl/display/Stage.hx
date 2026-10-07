@@ -2366,6 +2366,10 @@ class Stage extends DisplayObjectContainer #if lime implements IModule #end
 				{
 					__renderer.__clear();
 				}
+				else
+				{
+					context3D.__invalidateGLViewport();
+				}
 
 				__renderer.__render(this);
 			}
@@ -2389,6 +2393,7 @@ class Stage extends DisplayObjectContainer #if lime implements IModule #end
 
 					context3D.__present = false;
 					context3D.__cleared = false;
+					@:privateAccess RenderStats.__endFrame();
 				}
 			}
 

@@ -97,6 +97,8 @@ import openfl.Vector;
 		var gl = __context.gl;
 		__context.__bindGLElementArrayBuffer(__id);
 		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, data, __usage);
+		@:privateAccess openfl.display.RenderStats.__bufferUploads++;
+		@:privateAccess openfl.display.RenderStats.__bufferUploadBytes += data.byteLength;
 	}
 
 	/**

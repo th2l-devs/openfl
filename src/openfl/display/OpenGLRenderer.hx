@@ -435,7 +435,7 @@ class OpenGLRenderer extends DisplayObjectRenderer
 	**/
 	public function setViewport():Void
 	{
-		__gl.viewport(__offsetX, __offsetY, __displayWidth, __displayHeight);
+		__context3D.__setGLViewport(__offsetX, __offsetY, __displayWidth, __displayHeight);
 	}
 
 	/**

@@ -437,7 +437,7 @@ class Shader
 		#if lime
 		if (__context.__context.type == OPENGL)
 		{
-			gl.disable(gl.TEXTURE_2D);
+			__context.__disableGLTexture2D();
 		}
 		#end
 	}

@@ -592,11 +592,12 @@ class InstancedTilePass
 
 		__bindInstances(context, gl2, gl);
 
-		gl.activeTexture(gl.TEXTURE0);
+		context.__setGLActiveTexture(0);
 		context.__bindGLTexture2D(__currentBitmapData.getTexture(context).__textureID);
 
 		context.__bindGLElementArrayBuffer(__quadIndices.__id);
 		gl2.drawElementsInstanced(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0, __numInstances);
+		@:privateAccess openfl.display.RenderStats.__drawCalls++;
 
 		#if gl_stats
 		Context3DStats.incrementDrawCall(DrawCallContext.STAGE);

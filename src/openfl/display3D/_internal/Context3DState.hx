@@ -60,6 +60,14 @@ class Context3DState
 	private var __currentGLFramebuffer:GLFramebuffer;
 	private var __currentGLTexture2D:GLTexture;
 	private var __currentGLTextureCubeMap:GLTexture;
+	private var __currentGLActiveTexture:Int;
+	private var __currentGLTexture2DPerUnit:Array<GLTexture>;
+	private var __currentGLTextureCubeMapPerUnit:Array<GLTexture>;
+	private var __enabledGLTexture2DUnits:Int;
+	private var __currentGLViewportX:Int;
+	private var __currentGLViewportY:Int;
+	private var __currentGLViewportWidth:Int;
+	private var __currentGLViewportHeight:Int;
 	private var __enableGLBlend:Bool;
 	private var __enableGLCullFace:Bool;
 	private var __enableGLDepthTest:Bool;
@@ -99,6 +107,12 @@ class Context3DState
 		stencilWriteMask = 0xFF;
 		textures = new Array();
 		__frontFaceGLCCW = true;
+		__currentGLActiveTexture = 0;
+		__currentGLTexture2DPerUnit = new Array();
+		__currentGLTextureCubeMapPerUnit = new Array();
+		__enabledGLTexture2DUnits = 0;
+		__currentGLViewportWidth = -1;
+		__currentGLViewportHeight = -1;
 
 		#if lime
 		__glBlendEquation = GL.FUNC_ADD;
