@@ -519,7 +519,8 @@ class Shader
 					var linked:Dynamic = gl.getProgramParameter(program.__glProgram, gl.LINK_STATUS);
 					if (linked != true && linked != 1)
 					{
-						@:privateAccess OpenGLRenderer.__complexBlendsSupported = false;
+						trace("[OpenFL] " + Type.getClassName(Type.getClass(this)) + " does not build with hardware blend modes, using the plain version: "
+							+ gl.getProgramInfoLog(program.__glProgram));
 						program.__glProgram = __createGLProgram(prefix + glVertexSource, prefix + glFragmentSource, prefix.split("\n").length - 1);
 					}
 				}
