@@ -215,6 +215,24 @@ class Shader
 
 	@:noCompletion private var __alpha:ShaderParameter<Float>;
 	@:noCompletion private var __bitmap:ShaderInput<BitmapData>;
+	@:noCompletion private var __buildError:openfl.errors.ShaderError;
+	@:noCompletion private static var __fallbackVertexSource:String = "attribute float openfl_Alpha;
+		attribute vec4 openfl_Position;
+		attribute vec2 openfl_TextureCoord;
+		varying float openfl_Alphav;
+		varying vec2 openfl_TextureCoordv;
+		uniform mat4 openfl_Matrix;
+		void main(void) {
+			openfl_Alphav = openfl_Alpha;
+			openfl_TextureCoordv = openfl_TextureCoord;
+			gl_Position = openfl_Matrix * openfl_Position;
+		}";
+	@:noCompletion private static var __fallbackFragmentSource:String = "varying float openfl_Alphav;
+		varying vec2 openfl_TextureCoordv;
+		uniform sampler2D bitmap;
+		void main(void) {
+			gl_FragColor = texture2D(bitmap, openfl_TextureCoordv) * openfl_Alphav;
+		}";
 	@:noCompletion private var __colorMultiplier:ShaderParameter<Float>;
 	@:noCompletion private var __colorOffset:ShaderParameter<Float>;
 	@:noCompletion private var __context:Context3D;
@@ -326,7 +344,8 @@ class Shader
 		gl.shaderSource(shader, source);
 		gl.compileShader(shader);
 
-		GLShaderDiagnostics.checkShader(gl, shader, (type == gl.VERTEX_SHADER) ? "vertex" : "fragment", source, lineOffset);
+		var error = GLShaderDiagnostics.shaderError(gl, shader, (type == gl.VERTEX_SHADER) ? "vertex" : "fragment", source, lineOffset);
+		if (error != null && __buildError == null) __buildError = error;
 
 		return shader;
 	}
@@ -334,6 +353,8 @@ class Shader
 	@:noCompletion private function __createGLProgram(vertexSource:String, fragmentSource:String, lineOffset:Int = 0):GLProgram
 	{
 		var gl = __context.gl;
+
+		__buildError = null;
 
 		var vertexShader = __createGLShader(vertexSource, gl.VERTEX_SHADER, lineOffset);
 		var fragmentShader = __createGLShader(fragmentSource, gl.FRAGMENT_SHADER, lineOffset);
@@ -354,9 +375,25 @@ class Shader
 		gl.attachShader(program, fragmentShader);
 		gl.linkProgram(program);
 
-		GLShaderDiagnostics.checkProgram(gl, program, fragmentSource, lineOffset);
+		if (__buildError == null) __buildError = GLShaderDiagnostics.programError(gl, program, fragmentSource, lineOffset);
 
 		return program;
+	}
+
+	@:noCompletion private function __createFallbackGLProgram(prefix:String, vertex:String):GLProgram
+	{
+		var gl = __context.gl;
+		var fragment = prefix + __fallbackFragmentSource;
+
+		var program = __createGLProgram(vertex, fragment);
+		if (__buildError == null) return program;
+		gl.deleteProgram(program);
+
+		program = __createGLProgram(prefix + __fallbackVertexSource, fragment);
+		if (__buildError == null) return program;
+		gl.deleteProgram(program);
+
+		return null;
 	}
 
 	@:noCompletion private function __disable():Void
@@ -512,7 +549,18 @@ class Shader
 				// program.uploadSources (vertex, fragment);
 				program.__glProgram = __createGLProgram(vertex, fragment, lineOffset);
 
-				if (__complexBlendPrefix())
+				var failed = __buildError;
+				if (failed != null)
+				{
+					trace("[OpenFL] " + Type.getClassName(Type.getClass(this)) + " failed to build, drawing it without the effect: " + failed.message);
+					var fallback = __createFallbackGLProgram(prefix, vertex);
+					if (fallback != null)
+					{
+						gl.deleteProgram(program.__glProgram);
+						program.__glProgram = fallback;
+					}
+				}
+				else if (__complexBlendPrefix())
 				{
 					program.__advancedSources = [
 						"#version 150 compatibility\n" + vertex,

@@ -52,12 +52,25 @@ class GLShaderDiagnostics
 	public static function checkShader(gl:#if lime WebGLRenderContext #else Dynamic #end, shader:GLShader, shaderType:String, source:String,
 			lineOffset:Int = 0):Bool
 	{
+		var error = shaderError(gl, shader, shaderType, source, lineOffset);
+
+		if (error != null)
+		{
+			__report(error);
+			return false;
+		}
+
+		return true;
+	}
+
+	public static function shaderError(gl:#if lime WebGLRenderContext #else Dynamic #end, shader:GLShader, shaderType:String, source:String,
+			lineOffset:Int = 0):ShaderError
+	{
 		var infoLog = gl.getShaderInfoLog(shader);
 
 		if (gl.getShaderParameter(shader, gl.COMPILE_STATUS) == 0)
 		{
-			__report(new ShaderError(shaderType, infoLog, source, lineOffset));
-			return false;
+			return new ShaderError(shaderType, infoLog, source, lineOffset);
 		}
 
 		if (infoLog != null && StringTools.trim(infoLog) != "")
@@ -65,7 +78,7 @@ class GLShaderDiagnostics
 			Log.debug("Info compiling " + shaderType + " shader\n" + infoLog + "\n" + source);
 		}
 
-		return true;
+		return null;
 	}
 
 	/**
@@ -77,21 +90,34 @@ class GLShaderDiagnostics
 	**/
 	public static function checkProgram(gl:#if lime WebGLRenderContext #else Dynamic #end, program:GLProgram, source:String, lineOffset:Int = 0):Bool
 	{
-		if (gl.getProgramParameter(program, gl.LINK_STATUS) == 0)
+		var error = programError(gl, program, source, lineOffset);
+
+		if (error != null)
 		{
-			__report(new ShaderError("program", gl.getProgramInfoLog(program), source, lineOffset));
+			__report(error);
 			return false;
 		}
 
 		return true;
 	}
 
+	public static function programError(gl:#if lime WebGLRenderContext #else Dynamic #end, program:GLProgram, source:String, lineOffset:Int = 0):ShaderError
+	{
+		if (gl.getProgramParameter(program, gl.LINK_STATUS) == 0)
+		{
+			return new ShaderError("program", gl.getProgramInfoLog(program), source, lineOffset);
+		}
+
+		return null;
+	}
+
 	@:noCompletion private static function __report(error:ShaderError):Void
 	{
-		// Throwing is opt-in so existing applications keep their current behavior; the
-		// message is the same either way
-		if (Log.throwErrors) throw error;
-		Log.println(error.message);
+		#if openfl_throw_shader_errors
+		throw error;
+		#else
+		trace(error.message);
+		#end
 	}
 }
 #end
