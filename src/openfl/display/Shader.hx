@@ -448,6 +448,17 @@ class Shader
 		}
 	}
 
+	@:noCompletion private function __complexBlendPrefix():Bool
+	{
+		#if (lime && desktop)
+		return @:privateAccess OpenGLRenderer.__complexBlendsSupported == true
+			&& glVertexSource.indexOf("#version") < 0
+			&& glFragmentSource.indexOf("#version") < 0;
+		#else
+		return false;
+		#end
+	}
+
 	@:noCompletion private function __initGL():Void
 	{
 		if (__glSourceDirty || __paramBool == null)
@@ -481,8 +492,11 @@ class Shader
 				+ "#endif\n\n";
 			#end
 
-			var vertex = prefix + glVertexSource;
-			var fragment = prefix + glFragmentSource;
+			var advanced = __complexBlendPrefix();
+			var vertex = (advanced ? "#version 150 compatibility\n" : "") + prefix + glVertexSource;
+			var fragmentPrefix = advanced ? "#version 150 compatibility\n#extension GL_KHR_blend_equation_advanced : enable\n#extension GL_ARB_sample_shading : enable\n"
+				+ prefix + "layout (blend_support_all_equations) out;\n" : prefix;
+			var fragment = fragmentPrefix + glFragmentSource;
 
 			var id = vertex + fragment;
 
@@ -494,11 +508,21 @@ class Shader
 			{
 				program = __context.createProgram(GLSL);
 
-				var lineOffset = prefix.split("\n").length - 1;
+				var lineOffset = fragmentPrefix.split("\n").length - 1;
 
 				// TODO
 				// program.uploadSources (vertex, fragment);
 				program.__glProgram = __createGLProgram(vertex, fragment, lineOffset);
+
+				if (advanced)
+				{
+					var linked:Dynamic = gl.getProgramParameter(program.__glProgram, gl.LINK_STATUS);
+					if (linked != true && linked != 1)
+					{
+						@:privateAccess OpenGLRenderer.__complexBlendsSupported = false;
+						program.__glProgram = __createGLProgram(prefix + glVertexSource, prefix + glFragmentSource, prefix.split("\n").length - 1);
+					}
+				}
 
 				__context.__programs.set(id, program);
 			}

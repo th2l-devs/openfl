@@ -77,6 +77,8 @@ class OpenGLRenderer extends DisplayObjectRenderer
 	@:noCompletion private static var __staticDefaultDisplayShader:DisplayObjectShader;
 	@:noCompletion private static var __staticDefaultGraphicsShader:GraphicsShader;
 	@:noCompletion private static var __staticMaskShader:Context3DMaskShader;
+	@:noCompletion private static var __complexBlendsSupported:Null<Bool>;
+	@:noCompletion private static var __coherentBlendsSupported:Null<Bool>;
 	@:noCompletion private static var __staticBlendShader:Context3DBlendShader;
 
 	@:noCompletion private var __context3D:Context3D;
@@ -168,6 +170,24 @@ class OpenGLRenderer extends DisplayObjectRenderer
 		#if lime
 		__type = OPENGL;
 		#end
+
+		if (__complexBlendsSupported == null)
+		{
+			__complexBlendsSupported = false;
+			__coherentBlendsSupported = false;
+			#if (lime && desktop && !openfl_disable_complex_blends)
+			if (__context.type == lime.graphics.RenderContextType.OPENGL)
+			{
+				var extensions = __gl.getSupportedExtensions();
+				var glsl = Std.parseFloat(Std.string(__gl.getParameter(__gl.SHADING_LANGUAGE_VERSION)));
+				if (extensions != null && extensions.indexOf("KHR_blend_equation_advanced") > -1 && glsl >= 1.5)
+				{
+					__complexBlendsSupported = true;
+					__coherentBlendsSupported = extensions.indexOf("KHR_blend_equation_advanced_coherent") > -1;
+				}
+			}
+			#end
+		}
 
 		__setBlendMode(NORMAL);
 		__context3D.__setGLBlend(true);
@@ -1083,6 +1103,23 @@ class OpenGLRenderer extends DisplayObjectRenderer
 
 		__blendMode = value;
 
+		if (__complexBlendsSupported)
+		{
+			var equation = __complexBlendEquation(value);
+			if (!__coherentBlendsSupported && __context3D.__usingComplexBlend != (equation != 0))
+			{
+				var enabled = @:privateAccess __context3D.__contextState.__enableGLBlend;
+				__context3D.__setGLBlend(false);
+				__context3D.__setGLBlend(enabled);
+			}
+			__context3D.__usingComplexBlend = equation != 0;
+			if (equation != 0)
+			{
+				__context3D.__setGLBlendEquation(equation);
+				return;
+			}
+		}
+
 		switch (value)
 		{
 			case ADD:
@@ -1125,6 +1162,26 @@ class OpenGLRenderer extends DisplayObjectRenderer
 
 			default:
 				__context3D.setBlendFactors(ONE, ONE_MINUS_SOURCE_ALPHA);
+		}
+	}
+
+	@:noCompletion private static function __complexBlendEquation(value:BlendMode):Int
+	{
+		return switch (value)
+		{
+			case OVERLAY: 0x9296;
+			case DARKEN: 0x9297;
+			case COLORDODGE: 0x9299;
+			case COLORBURN: 0x929A;
+			case HARDLIGHT: 0x929B;
+			case SOFTLIGHT: 0x929C;
+			case DIFFERENCE: 0x929E;
+			case EXCLUSION: 0x92A0;
+			case HUE: 0x92AD;
+			case SATURATION: 0x92AE;
+			case COLOR: 0x92AF;
+			case LUMINOSITY: 0x92B0;
+			default: 0;
 		}
 	}
 
