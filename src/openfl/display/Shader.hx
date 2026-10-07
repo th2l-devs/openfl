@@ -451,7 +451,7 @@ class Shader
 	@:noCompletion private function __complexBlendPrefix():Bool
 	{
 		#if (lime && desktop)
-		return @:privateAccess OpenGLRenderer.__complexBlendsSupported == true
+		return @:privateAccess OpenGLRenderer.__complexBlendsSupported != false
 			&& glVertexSource.indexOf("#version") < 0
 			&& glFragmentSource.indexOf("#version") < 0;
 		#else
@@ -492,10 +492,8 @@ class Shader
 				+ "#endif\n\n";
 			#end
 
-			var advanced = __complexBlendPrefix();
-			var vertex = (advanced ? "#version 150 compatibility\n" : "") + prefix + glVertexSource;
-			var fragmentPrefix = advanced ? "#version 150 compatibility\n#extension GL_KHR_blend_equation_advanced : enable\n#extension GL_ARB_sample_shading : enable\n"
-				+ prefix + "layout (blend_support_all_equations) out;\n" : prefix;
+			var vertex = prefix + glVertexSource;
+			var fragmentPrefix = prefix;
 			var fragment = fragmentPrefix + glFragmentSource;
 
 			var id = vertex + fragment;
@@ -514,15 +512,13 @@ class Shader
 				// program.uploadSources (vertex, fragment);
 				program.__glProgram = __createGLProgram(vertex, fragment, lineOffset);
 
-				if (advanced)
+				if (__complexBlendPrefix())
 				{
-					var linked:Dynamic = gl.getProgramParameter(program.__glProgram, gl.LINK_STATUS);
-					if (linked != true && linked != 1)
-					{
-						trace("[OpenFL] " + Type.getClassName(Type.getClass(this)) + " does not build with hardware blend modes, using the plain version: "
-							+ gl.getProgramInfoLog(program.__glProgram));
-						program.__glProgram = __createGLProgram(prefix + glVertexSource, prefix + glFragmentSource, prefix.split("\n").length - 1);
-					}
+					program.__advancedSources = [
+						"#version 150 compatibility\n" + vertex,
+						"#version 150 compatibility\n#extension GL_KHR_blend_equation_advanced : enable\n#extension GL_ARB_sample_shading : enable\n" + prefix
+						+ "layout (blend_support_all_equations) out;\n" + glFragmentSource
+					];
 				}
 
 				__context.__programs.set(id, program);

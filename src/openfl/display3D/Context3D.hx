@@ -1258,9 +1258,9 @@ import lime.math.Vector2;
 
 		__bindGLElementArrayBuffer(indexBuffer.__id);
 		var complexBlend = __usingComplexBlend && __complexEquation != 0 && __contextState.__enableGLBlend;
-		if (complexBlend) __beginComplexBlend();
+		var advanced = complexBlend && __beginComplexBlend();
 		gl.drawElements(gl.TRIANGLES, count, gl.UNSIGNED_SHORT, firstIndex * 2);
-		if (complexBlend) __endComplexBlend();
+		if (complexBlend) __endComplexBlend(advanced);
 	}
 
 	/**
@@ -2071,9 +2071,9 @@ import lime.math.Vector2;
 		}
 
 		var complexBlend = __usingComplexBlend && __complexEquation != 0 && __contextState.__enableGLBlend;
-		if (complexBlend) __beginComplexBlend();
+		var advanced = complexBlend && __beginComplexBlend();
 		gl.drawArrays(gl.TRIANGLES, firstIndex, count);
-		if (complexBlend) __endComplexBlend();
+		if (complexBlend) __endComplexBlend(advanced);
 	}
 
 	@:noCompletion private function __flushGL():Void
@@ -2633,15 +2633,31 @@ import lime.math.Vector2;
 		}
 	}
 
-	@:noCompletion private inline function __beginComplexBlend():Void
+	@:noCompletion private function __beginComplexBlend():Bool
 	{
+		if (__state.program == null || !__state.program.__useAdvanced())
+		{
+			__setGLBlendEquation(gl.FUNC_ADD);
+			gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+			return false;
+		}
 		__setGLBlendEquation(__complexEquation);
 		if (!@:privateAccess openfl.display.OpenGLRenderer.__coherentBlendsSupported) gl.blendBarrier();
+		return true;
 	}
 
-	@:noCompletion private inline function __endComplexBlend():Void
+	@:noCompletion private function __endComplexBlend(advanced:Bool):Void
 	{
-		__setGLBlendEquation(gl.FUNC_ADD);
+		if (advanced)
+		{
+			__setGLBlendEquation(gl.FUNC_ADD);
+			__state.program.__endAdvanced();
+		}
+		else
+		{
+			gl.blendFuncSeparate(__getGLBlend(__contextState.blendSourceRGBFactor), __getGLBlend(__contextState.blendDestinationRGBFactor),
+				__getGLBlend(__contextState.blendSourceAlphaFactor), __getGLBlend(__contextState.blendDestinationAlphaFactor));
+		}
 	}
 
 	@:noCompletion private function __setGLBlend(enable:Bool):Void

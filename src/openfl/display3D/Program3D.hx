@@ -79,6 +79,14 @@ import lime.utils.BytePointer;
 	// Lines prepended ahead of the caller's source, so driver-reported line numbers can be
 	// translated back into the caller's own coordinates when reporting a compile error
 	@:noCompletion private var __glLineOffset:Int = 0;
+	@:noCompletion private var __advancedSources:Array<String>;
+	@:noCompletion private var __advancedGLProgram:GLProgram;
+	@:noCompletion private var __advancedUniforms:Array<Array<Int>>;
+	@:noCompletion private var __advancedFailed:Bool = false;
+	#if (lime && desktop)
+	@:noCompletion private static var __advancedFloats:lime.utils.Float32Array;
+	@:noCompletion private static var __advancedInts:lime.utils.Int32Array;
+	#end
 	// @:noCompletion private var __memUsage:Int;
 	@:noCompletion private var __samplerStates:Array<SamplerState>;
 
@@ -116,6 +124,141 @@ import lime.utils.BytePointer;
 	public function dispose():Void
 	{
 		__deleteShaders();
+	}
+
+	@:noCompletion private function __useAdvanced():Bool
+	{
+		#if (lime && desktop)
+		if (__advancedGLProgram == null)
+		{
+			if (__advancedFailed || __advancedSources == null || __glProgram == null) return false;
+			if (!__buildAdvanced())
+			{
+				__advancedFailed = true;
+				return false;
+			}
+		}
+
+		var native = GL.context;
+		if (__advancedFloats == null)
+		{
+			__advancedFloats = new lime.utils.Float32Array(64);
+			__advancedInts = new lime.utils.Int32Array(16);
+		}
+		var floats = lime.utils.DataPointer.fromArrayBufferView(__advancedFloats);
+		var ints = lime.utils.DataPointer.fromArrayBufferView(__advancedInts);
+
+		native.useProgram(__advancedGLProgram);
+		for (uniform in __advancedUniforms)
+		{
+			var from:GLUniformLocation = cast uniform[0];
+			var to:GLUniformLocation = cast uniform[1];
+			switch (uniform[2])
+			{
+				case GL.FLOAT:
+					native.getUniformfv(__glProgram, from, floats);
+					native.uniform1fv(to, 1, floats);
+				case GL.FLOAT_VEC2:
+					native.getUniformfv(__glProgram, from, floats);
+					native.uniform2fv(to, 1, floats);
+				case GL.FLOAT_VEC3:
+					native.getUniformfv(__glProgram, from, floats);
+					native.uniform3fv(to, 1, floats);
+				case GL.FLOAT_VEC4:
+					native.getUniformfv(__glProgram, from, floats);
+					native.uniform4fv(to, 1, floats);
+				case GL.FLOAT_MAT2:
+					native.getUniformfv(__glProgram, from, floats);
+					native.uniformMatrix2fv(to, 1, false, floats);
+				case GL.FLOAT_MAT3:
+					native.getUniformfv(__glProgram, from, floats);
+					native.uniformMatrix3fv(to, 1, false, floats);
+				case GL.FLOAT_MAT4:
+					native.getUniformfv(__glProgram, from, floats);
+					native.uniformMatrix4fv(to, 1, false, floats);
+				case GL.INT_VEC2, GL.BOOL_VEC2:
+					native.getUniformiv(__glProgram, from, ints);
+					native.uniform2iv(to, 1, ints);
+				case GL.INT_VEC3, GL.BOOL_VEC3:
+					native.getUniformiv(__glProgram, from, ints);
+					native.uniform3iv(to, 1, ints);
+				case GL.INT_VEC4, GL.BOOL_VEC4:
+					native.getUniformiv(__glProgram, from, ints);
+					native.uniform4iv(to, 1, ints);
+				default:
+					native.getUniformiv(__glProgram, from, ints);
+					native.uniform1iv(to, 1, ints);
+			}
+		}
+		return true;
+		#else
+		return false;
+		#end
+	}
+
+	@:noCompletion private function __endAdvanced():Void
+	{
+		__context.gl.useProgram(__glProgram);
+	}
+
+	@:noCompletion private function __buildAdvanced():Bool
+	{
+		#if (lime && desktop)
+		var gl = __context.gl;
+
+		var vertexShader = gl.createShader(gl.VERTEX_SHADER);
+		gl.shaderSource(vertexShader, __advancedSources[0]);
+		gl.compileShader(vertexShader);
+
+		var fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+		gl.shaderSource(fragmentShader, __advancedSources[1]);
+		gl.compileShader(fragmentShader);
+
+		var program = gl.createProgram();
+		var attributes:Int = gl.getProgramParameter(__glProgram, gl.ACTIVE_ATTRIBUTES);
+		for (i in 0...attributes)
+		{
+			var info = gl.getActiveAttrib(__glProgram, i);
+			var location = gl.getAttribLocation(__glProgram, info.name);
+			if (location >= 0) gl.bindAttribLocation(program, location, info.name);
+		}
+
+		gl.attachShader(program, vertexShader);
+		gl.attachShader(program, fragmentShader);
+		gl.linkProgram(program);
+		gl.deleteShader(vertexShader);
+		gl.deleteShader(fragmentShader);
+
+		var linked:Dynamic = gl.getProgramParameter(program, gl.LINK_STATUS);
+		if (linked != true && linked != 1)
+		{
+			trace("[OpenFL] a shader does not build with hardware blend modes, drawing it as normal: " + gl.getProgramInfoLog(program));
+			gl.deleteProgram(program);
+			return false;
+		}
+
+		__advancedUniforms = [];
+		var uniforms:Int = gl.getProgramParameter(__glProgram, gl.ACTIVE_UNIFORMS);
+		for (i in 0...uniforms)
+		{
+			var info = gl.getActiveUniform(__glProgram, i);
+			var name = info.name;
+			var bracket = name.indexOf("[");
+			if (bracket > -1) name = name.substr(0, bracket);
+			for (j in 0...info.size)
+			{
+				var element = (info.size > 1 || bracket > -1) ? name + "[" + j + "]" : name;
+				var from:Int = cast gl.getUniformLocation(__glProgram, element);
+				var to:Int = cast gl.getUniformLocation(program, element);
+				if (from >= 0 && to >= 0) __advancedUniforms.push([from, to, info.type]);
+			}
+		}
+
+		__advancedGLProgram = program;
+		return true;
+		#else
+		return false;
+		#end
 	}
 
 	/**
@@ -595,6 +738,13 @@ import lime.utils.BytePointer;
 	@:noCompletion private function __deleteShaders():Void
 	{
 		var gl = __context.gl;
+
+		if (__advancedGLProgram != null)
+		{
+			gl.deleteProgram(__advancedGLProgram);
+			__advancedGLProgram = null;
+		}
+		__advancedUniforms = null;
 
 		if (__glProgram != null)
 		{
