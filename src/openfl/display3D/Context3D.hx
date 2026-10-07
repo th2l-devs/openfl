@@ -282,6 +282,7 @@ import lime.math.Vector2;
 	@:noCompletion private var __stage3D:Stage3D;
 	@:noCompletion private var __state:Context3DState;
 	@:noCompletion private var __usingComplexBlend:Bool = false;
+	@:noCompletion private var __complexEquation:Int = 0;
 	@:noCompletion private var __vertexConstants:Float32Array;
 
 	@:noCompletion private function new(stage:Stage, contextState:Context3DState = null, stage3D:Stage3D = null)
@@ -1256,7 +1257,7 @@ import lime.math.Vector2;
 		var count = (numTriangles == -1) ? indexBuffer.__numIndices : (numTriangles * 3);
 
 		__bindGLElementArrayBuffer(indexBuffer.__id);
-		var complexBlend = __usingComplexBlend && __contextState.__enableGLBlend;
+		var complexBlend = __usingComplexBlend && __complexEquation != 0 && __contextState.__enableGLBlend;
 		if (complexBlend) __beginComplexBlend();
 		gl.drawElements(gl.TRIANGLES, count, gl.UNSIGNED_SHORT, firstIndex * 2);
 		if (complexBlend) __endComplexBlend();
@@ -2069,7 +2070,7 @@ import lime.math.Vector2;
 			__state.program.__flush();
 		}
 
-		var complexBlend = __usingComplexBlend && __contextState.__enableGLBlend;
+		var complexBlend = __usingComplexBlend && __complexEquation != 0 && __contextState.__enableGLBlend;
 		if (complexBlend) __beginComplexBlend();
 		gl.drawArrays(gl.TRIANGLES, firstIndex, count);
 		if (complexBlend) __endComplexBlend();
@@ -2634,13 +2635,13 @@ import lime.math.Vector2;
 
 	@:noCompletion private inline function __beginComplexBlend():Void
 	{
-		if (@:privateAccess openfl.display.OpenGLRenderer.__coherentBlendsSupported) gl.enable(0x9285);
-		else gl.blendBarrier();
+		__setGLBlendEquation(__complexEquation);
+		if (!@:privateAccess openfl.display.OpenGLRenderer.__coherentBlendsSupported) gl.blendBarrier();
 	}
 
 	@:noCompletion private inline function __endComplexBlend():Void
 	{
-		if (@:privateAccess openfl.display.OpenGLRenderer.__coherentBlendsSupported) gl.disable(0x9285);
+		__setGLBlendEquation(gl.FUNC_ADD);
 	}
 
 	@:noCompletion private function __setGLBlend(enable:Bool):Void

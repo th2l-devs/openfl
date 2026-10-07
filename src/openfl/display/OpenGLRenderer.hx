@@ -184,6 +184,7 @@ class OpenGLRenderer extends DisplayObjectRenderer
 				{
 					__complexBlendsSupported = true;
 					__coherentBlendsSupported = extensions.indexOf("KHR_blend_equation_advanced_coherent") > -1;
+					if (__coherentBlendsSupported) __gl.enable(0x9285);
 				}
 			}
 			#end
@@ -1113,11 +1114,8 @@ class OpenGLRenderer extends DisplayObjectRenderer
 				__context3D.__setGLBlend(enabled);
 			}
 			__context3D.__usingComplexBlend = equation != 0;
-			if (equation != 0)
-			{
-				__context3D.__setGLBlendEquation(equation);
-				return;
-			}
+			__context3D.__complexEquation = equation;
+			if (equation != 0) return;
 		}
 
 		switch (value)
