@@ -462,6 +462,7 @@ class DisplayObjectRenderer extends EventDispatcher
 						|| (exactSize ? bitmapWidth != displayObject.__cacheBitmapData.width : bitmapWidth > displayObject.__cacheBitmapData.width)
 						|| (exactSize ? bitmapHeight != displayObject.__cacheBitmapData.height : bitmapHeight > displayObject.__cacheBitmapData.height))
 					{
+						if (displayObject.__cacheBitmapData != null) displayObject.__cacheBitmapData.dispose();
 						displayObject.__cacheBitmapData = new BitmapData(bitmapWidth, bitmapHeight, true, bitmapColor);
 
 						if (displayObject.__cacheBitmap == null) displayObject.__cacheBitmap = new Bitmap();
@@ -483,6 +484,9 @@ class DisplayObjectRenderer extends EventDispatcher
 				{
 					ColorTransform.__pool.release(colorTransform);
 
+					if (displayObject.__cacheBitmapData != null) displayObject.__cacheBitmapData.dispose();
+					if (displayObject.__cacheBitmapData2 != null) displayObject.__cacheBitmapData2.dispose();
+					if (displayObject.__cacheBitmapData3 != null) displayObject.__cacheBitmapData3.dispose();
 					displayObject.__cacheBitmap = null;
 					displayObject.__cacheBitmapData = null;
 					displayObject.__cacheBitmapData2 = null;
@@ -572,6 +576,7 @@ class DisplayObjectRenderer extends EventDispatcher
 						if (displayObject.__cacheBitmapData.image == null)
 						{
 							var color = displayObject.opaqueBackground != null ? (0xFF << 24) | displayObject.opaqueBackground : 0;
+							if (displayObject.__cacheBitmapData != null) displayObject.__cacheBitmapData.dispose();
 							displayObject.__cacheBitmapData = new BitmapData(bitmapWidth, bitmapHeight, true, color);
 							displayObject.__cacheBitmap.__bitmapData = displayObject.__cacheBitmapData;
 						}
@@ -665,6 +670,7 @@ class DisplayObjectRenderer extends EventDispatcher
 							|| (exactSize ? bitmapWidth != displayObject.__cacheBitmapData2.width : bitmapWidth > displayObject.__cacheBitmapData2.width)
 							|| (exactSize ? bitmapHeight != displayObject.__cacheBitmapData2.height : bitmapHeight > displayObject.__cacheBitmapData2.height))
 						{
+							if (displayObject.__cacheBitmapData2 != null) displayObject.__cacheBitmapData2.dispose();
 							displayObject.__cacheBitmapData2 = new BitmapData(bitmapWidth, bitmapHeight, true, 0);
 						}
 						else
@@ -687,6 +693,7 @@ class DisplayObjectRenderer extends EventDispatcher
 								|| (exactSize ? bitmapWidth != displayObject.__cacheBitmapData3.width : bitmapWidth > displayObject.__cacheBitmapData3.width)
 								|| (exactSize ? bitmapHeight != displayObject.__cacheBitmapData3.height : bitmapHeight > displayObject.__cacheBitmapData3.height))
 							{
+								if (displayObject.__cacheBitmapData3 != null) displayObject.__cacheBitmapData3.dispose();
 								displayObject.__cacheBitmapData3 = new BitmapData(bitmapWidth, bitmapHeight, true, 0);
 							}
 							else
@@ -795,6 +802,7 @@ class DisplayObjectRenderer extends EventDispatcher
 								|| (exactSize ? bitmapWidth != displayObject.__cacheBitmapData2.width : bitmapWidth > displayObject.__cacheBitmapData2.width)
 								|| (exactSize ? bitmapHeight != displayObject.__cacheBitmapData2.height : bitmapHeight > displayObject.__cacheBitmapData2.height))
 							{
+								if (displayObject.__cacheBitmapData2 != null) displayObject.__cacheBitmapData2.dispose();
 								displayObject.__cacheBitmapData2 = new BitmapData(bitmapWidth, bitmapHeight, true, 0);
 							}
 							else
@@ -815,6 +823,7 @@ class DisplayObjectRenderer extends EventDispatcher
 								|| (exactSize ? bitmapWidth != displayObject.__cacheBitmapData3.width : bitmapWidth > displayObject.__cacheBitmapData3.width)
 								|| (exactSize ? bitmapHeight != displayObject.__cacheBitmapData3.height : bitmapHeight > displayObject.__cacheBitmapData3.height))
 							{
+								if (displayObject.__cacheBitmapData3 != null) displayObject.__cacheBitmapData3.dispose();
 								displayObject.__cacheBitmapData3 = new BitmapData(bitmapWidth, bitmapHeight, true, 0);
 							}
 							else
