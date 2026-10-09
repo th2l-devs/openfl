@@ -59,7 +59,7 @@ import lime.utils.Int16Array;
 	// Power of two so the FFT needs no padding. 1024 samples is ~23ms at 44.1kHz, matching
 	// the same order of magnitude as LEVEL_WINDOW_MS - fine time resolution for beat-reactive
 	// visuals while still giving ~43Hz per bin of frequency resolution.
-	@:noCompletion private static inline var SPECTRUM_FFT_SIZE:Int = 1024;
+	@:noCompletion private static inline var SPECTRUM_FFT_SIZE:Int = 2048;
 	@:noCompletion private static inline var SPECTRUM_MIN_HZ:Float = 20;
 	@:noCompletion private static inline var SPECTRUM_MAX_HZ:Float = 16000;
 
@@ -540,7 +540,7 @@ import lime.utils.Int16Array;
 
 	/**
 		Per-band frequency magnitudes (0..1) around the current playback position, via a
-		1024-point FFT of the decoded waveform - the frequency-domain sibling of `leftLevel`.
+		2048-point FFT of the decoded waveform - the frequency-domain sibling of `leftLevel`.
 
 		Bands are log-spaced from `SPECTRUM_MIN_HZ` to `SPECTRUM_MAX_HZ`, so low `bands` counts
 		read like a bass/mid/treble split rather than wasting resolution on the sub-bass end.
@@ -672,6 +672,18 @@ import lime.utils.Int16Array;
 		{
 			var f0 = Math.exp(logMin + (logMax - logMin) * (b / bands));
 			var f1 = Math.exp(logMin + (logMax - logMin) * ((b + 1) / bands));
+
+			if (f1 - f0 < binHz)
+			{
+				var pos = Math.sqrt(f0 * f1) / binHz;
+				var lo = Std.int(pos);
+				var hi = lo + 1;
+				if (hi >= mags.length) hi = mags.length - 1;
+				if (lo >= mags.length) lo = mags.length - 1;
+				var frac = pos - lo;
+				result[b] = mags[lo] * (1 - frac) + mags[hi] * frac;
+				continue;
+			}
 
 			var bin0 = Std.int(f0 / binHz);
 			var bin1 = Std.int(Math.max(bin0 + 1, f1 / binHz));
