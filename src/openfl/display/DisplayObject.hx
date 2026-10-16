@@ -415,6 +415,8 @@ class DisplayObject extends EventDispatcher implements IBitmapDrawable #if (open
 	**/
 	public var cacheAsBitmapMatrix(get, set):Matrix;
 
+	public var cacheAsBitmapResolution(get, set):Float;
+
 	/**
 		An indexed array that contains each filter object currently associated
 		with the display object. The openfl.filters package contains several
@@ -968,6 +970,7 @@ class DisplayObject extends EventDispatcher implements IBitmapDrawable #if (open
 	@:noCompletion private var __blendMode:BlendMode;
 	@:noCompletion private var __cacheAsBitmap:Bool;
 	@:noCompletion private var __cacheAsBitmapMatrix:Matrix;
+	@:noCompletion private var __cacheAsBitmapResolution:Float;
 	@:noCompletion private var __cacheBitmap:Bitmap;
 	@:noCompletion private var __cacheBitmapBackground:Null<Int>;
 	@:noCompletion private var __cacheBitmapColorTransform:ColorTransform;
@@ -976,6 +979,7 @@ class DisplayObject extends EventDispatcher implements IBitmapDrawable #if (open
 	@:noCompletion private var __cacheBitmapData3:BitmapData;
 	@:noCompletion private var __cacheBitmapMatrix:Matrix;
 	@:noCompletion private var __cacheBitmapRenderer:DisplayObjectRenderer;
+	@:noCompletion private var __cacheResolutionMatrix:Matrix;
 	@SuppressWarnings("checkstyle:Dynamic") @:noCompletion private var __cairo:#if lime Cairo #else Dynamic #end;
 	@:noCompletion private var __children:Array<DisplayObject>;
 	@:noCompletion private var __customRenderClear:Bool;
@@ -1048,6 +1052,10 @@ class DisplayObject extends EventDispatcher implements IBitmapDrawable #if (open
 			"cacheAsBitmapMatrix": {
 				get: untyped #if haxe4 js.Syntax.code #else __js__ #end ("function () { return this.get_cacheAsBitmapMatrix (); }"),
 				set: untyped #if haxe4 js.Syntax.code #else __js__ #end ("function (v) { return this.set_cacheAsBitmapMatrix (v); }")
+			},
+			"cacheAsBitmapResolution": {
+				get: untyped #if haxe4 js.Syntax.code #else __js__ #end ("function () { return this.get_cacheAsBitmapResolution (); }"),
+				set: untyped #if haxe4 js.Syntax.code #else __js__ #end ("function (v) { return this.set_cacheAsBitmapResolution (v); }")
 			},
 			"filters": {
 				get: untyped #if haxe4 js.Syntax.code #else __js__ #end ("function () { return this.get_filters (); }"),
@@ -1138,6 +1146,7 @@ class DisplayObject extends EventDispatcher implements IBitmapDrawable #if (open
 		__alpha = 1;
 		__blendMode = NORMAL;
 		__cacheAsBitmap = false;
+		__cacheAsBitmapResolution = 1;
 		__transform = new Matrix();
 		__visible = true;
 
@@ -2091,6 +2100,18 @@ class DisplayObject extends EventDispatcher implements IBitmapDrawable #if (open
 	{
 		__setRenderDirty();
 		return __cacheAsBitmapMatrix = (value != null ? value.clone() : value);
+	}
+
+	@:noCompletion private function get_cacheAsBitmapResolution():Float
+	{
+		return __cacheAsBitmapResolution;
+	}
+
+	@:noCompletion private function set_cacheAsBitmapResolution(value:Float):Float
+	{
+		if (!(value > 0)) value = 1;
+		if (value != __cacheAsBitmapResolution) __setRenderDirty();
+		return __cacheAsBitmapResolution = value;
 	}
 
 	@:noCompletion private function get_filters():Array<BitmapFilter>

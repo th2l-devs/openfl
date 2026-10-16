@@ -9,6 +9,7 @@
 	<!-- <set name="lime-version" value="${expect-lime-version}" if="setup" unless="lime-version" /> -->
 
 	<haxedef name="native" if="cpp || neko" />
+	<haxedef name="openfl_cache_resolution" />
 	<set name="native" if="cpp || neko" />
 
 	<window stencil-buffer="true" depth-buffer="true" color-depth="32" />
