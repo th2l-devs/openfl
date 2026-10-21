@@ -83,6 +83,7 @@ import lime.utils.BytePointer;
 	@:noCompletion private var __advancedGLProgram:GLProgram;
 	@:noCompletion private var __advancedUniforms:Array<Array<Int>>;
 	@:noCompletion private var __advancedFailed:Bool = false;
+	@:noCompletion private var __advancedPrimary:Bool = false;
 	#if (lime && (desktop || mobile))
 	@:noCompletion private static var __advancedFloats:lime.utils.Float32Array;
 	@:noCompletion private static var __advancedInts:lime.utils.Int32Array;
@@ -128,6 +129,7 @@ import lime.utils.BytePointer;
 
 	@:noCompletion private function __useAdvanced():Bool
 	{
+		if (__advancedPrimary) return true;
 		#if (lime && (desktop || mobile))
 		if (__advancedGLProgram == null)
 		{
@@ -198,6 +200,7 @@ import lime.utils.BytePointer;
 
 	@:noCompletion private function __endAdvanced():Void
 	{
+		if (__advancedPrimary) return;
 		__context.gl.useProgram(__glProgram);
 	}
 

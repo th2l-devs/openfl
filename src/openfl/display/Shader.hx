@@ -574,7 +574,22 @@ class Shader
 
 				// TODO
 				// program.uploadSources (vertex, fragment);
-				program.__glProgram = __createGLProgram(vertex, fragment, lineOffset);
+				if (__complexBlendPrefix() && @:privateAccess OpenGLRenderer.__complexBlendESVersion != null)
+				{
+					var es = __esAdvancedSources(prefix);
+					var esProgram = __createGLProgram(es[0], es[1]);
+					if (__buildError == null)
+					{
+						program.__glProgram = esProgram;
+						program.__advancedPrimary = true;
+					}
+					else
+					{
+						gl.deleteProgram(esProgram);
+						__buildError = null;
+					}
+				}
+				if (!program.__advancedPrimary) program.__glProgram = __createGLProgram(vertex, fragment, lineOffset);
 
 				var failed = __buildError;
 				if (failed != null)
@@ -587,11 +602,7 @@ class Shader
 						program.__glProgram = fallback;
 					}
 				}
-				else if (__complexBlendPrefix() && @:privateAccess OpenGLRenderer.__complexBlendESVersion != null)
-				{
-					program.__advancedSources = __esAdvancedSources(prefix);
-				}
-				else if (__complexBlendPrefix())
+				else if (__complexBlendPrefix() && @:privateAccess OpenGLRenderer.__complexBlendESVersion == null)
 				{
 					program.__advancedSources = [
 						"#version 150 compatibility\n" + vertex,
