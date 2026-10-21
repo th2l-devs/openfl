@@ -79,6 +79,8 @@ class OpenGLRenderer extends DisplayObjectRenderer
 	@:noCompletion private static var __staticMaskShader:Context3DMaskShader;
 	@:noCompletion private static var __complexBlendsSupported:Null<Bool>;
 	@:noCompletion private static var __coherentBlendsSupported:Null<Bool>;
+	@:noCompletion private static var __complexBlendESVersion:String = null;
+	@:noCompletion private static var __complexBlendESExtension:Bool = false;
 	@:noCompletion private static var __staticBlendShader:Context3DBlendShader;
 
 	@:noCompletion private var __context3D:Context3D;
@@ -175,18 +177,34 @@ class OpenGLRenderer extends DisplayObjectRenderer
 		{
 			__complexBlendsSupported = false;
 			__coherentBlendsSupported = false;
-			#if (lime && desktop && !openfl_disable_complex_blends)
+			#if (lime && (desktop || mobile) && !openfl_disable_complex_blends)
+			var extensions = __gl.getSupportedExtensions();
+			var hasExtension = extensions != null && extensions.indexOf("KHR_blend_equation_advanced") > -1;
+			var hasCoherent = extensions != null && extensions.indexOf("KHR_blend_equation_advanced_coherent") > -1;
 			if (__context.type == lime.graphics.RenderContextType.OPENGL)
 			{
-				var extensions = __gl.getSupportedExtensions();
 				var glsl = Std.parseFloat(Std.string(__gl.getParameter(__gl.SHADING_LANGUAGE_VERSION)));
-				if (extensions != null && extensions.indexOf("KHR_blend_equation_advanced") > -1 && glsl >= 1.5)
+				if (hasExtension && glsl >= 1.5)
 				{
 					__complexBlendsSupported = true;
-					__coherentBlendsSupported = extensions.indexOf("KHR_blend_equation_advanced_coherent") > -1;
-					if (__coherentBlendsSupported) __gl.enable(0x9285);
+					__coherentBlendsSupported = hasCoherent;
 				}
 			}
+			else if (__context.type == lime.graphics.RenderContextType.OPENGLES)
+			{
+				var glVersion = __esVersion(__gl.getParameter(__gl.VERSION));
+				var glslVersion = __esVersion(__gl.getParameter(__gl.SHADING_LANGUAGE_VERSION));
+				if (glslVersion >= 3.1 && (hasExtension || glVersion >= 3.2))
+				{
+					__complexBlendsSupported = true;
+					__coherentBlendsSupported = hasCoherent;
+					__complexBlendESVersion = glslVersion >= 3.2 ? "320 es" : "310 es";
+					__complexBlendESExtension = glslVersion < 3.2;
+				}
+				trace("[OpenFL] GLES " + glVersion + ", GLSL ES " + glslVersion + ", KHR_blend_equation_advanced " + hasExtension
+					+ (hasCoherent ? " (coherent)" : "") + ": hardware blend modes " + (__complexBlendsSupported ? "on" : "off"));
+			}
+			if (__coherentBlendsSupported) __gl.enable(0x9285);
 			#end
 		}
 
@@ -1095,6 +1113,15 @@ class OpenGLRenderer extends DisplayObjectRenderer
 		{
 			__context3D.setScissorRectangle(null);
 		}
+	}
+
+	@:noCompletion private static function __esVersion(value:Dynamic):Float
+	{
+		if (value == null) return 0;
+		var match = ~/ES[^0-9]*([0-9]+)\.([0-9]+)/;
+		if (!match.match(Std.string(value))) return 0;
+		var minor = match.matched(2);
+		return Std.parseFloat(match.matched(1) + "." + minor.charAt(0));
 	}
 
 	@:noCompletion private override function __setBlendMode(value:BlendMode):Void

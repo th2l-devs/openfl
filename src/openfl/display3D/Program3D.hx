@@ -83,7 +83,7 @@ import lime.utils.BytePointer;
 	@:noCompletion private var __advancedGLProgram:GLProgram;
 	@:noCompletion private var __advancedUniforms:Array<Array<Int>>;
 	@:noCompletion private var __advancedFailed:Bool = false;
-	#if (lime && desktop)
+	#if (lime && (desktop || mobile))
 	@:noCompletion private static var __advancedFloats:lime.utils.Float32Array;
 	@:noCompletion private static var __advancedInts:lime.utils.Int32Array;
 	#end
@@ -128,7 +128,7 @@ import lime.utils.BytePointer;
 
 	@:noCompletion private function __useAdvanced():Bool
 	{
-		#if (lime && desktop)
+		#if (lime && (desktop || mobile))
 		if (__advancedGLProgram == null)
 		{
 			if (__advancedFailed || __advancedSources == null || __glProgram == null) return false;
@@ -203,7 +203,7 @@ import lime.utils.BytePointer;
 
 	@:noCompletion private function __buildAdvanced():Bool
 	{
-		#if (lime && desktop)
+		#if (lime && (desktop || mobile))
 		var gl = __context.gl;
 
 		var vertexShader = gl.createShader(gl.VERTEX_SHADER);

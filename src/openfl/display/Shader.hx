@@ -487,13 +487,40 @@ class Shader
 
 	@:noCompletion private function __complexBlendPrefix():Bool
 	{
-		#if (lime && desktop)
+		#if (lime && (desktop || mobile))
 		return @:privateAccess OpenGLRenderer.__complexBlendsSupported != false
 			&& glVertexSource.indexOf("#version") < 0
 			&& glFragmentSource.indexOf("#version") < 0;
 		#else
 		return false;
 		#end
+	}
+
+	@:noCompletion private function __esAdvancedSources(prefix:String):Array<String>
+	{
+		var version = "#version " + @:privateAccess OpenGLRenderer.__complexBlendESVersion + "\n";
+		var vertexExt = new StringBuf();
+		var vertexBody = new StringBuf();
+		for (line in (prefix + glVertexSource).split("\n"))
+		{
+			if (StringTools.startsWith(StringTools.ltrim(line), "#extension")) vertexExt.add(line + "\n");
+			else vertexBody.add(line + "\n");
+		}
+		var fragmentExt = new StringBuf();
+		var fragmentBody = new StringBuf();
+		for (line in glFragmentSource.split("\n"))
+		{
+			if (StringTools.startsWith(StringTools.ltrim(line), "#extension")) fragmentExt.add(line + "\n");
+			else fragmentBody.add(line + "\n");
+		}
+		var vertex = version + vertexExt.toString() + "#define attribute in\n#define varying out\n#define texture2D texture\n"
+			+ vertexBody.toString();
+		var fragment = version
+			+ (@:privateAccess OpenGLRenderer.__complexBlendESExtension ? "#extension GL_KHR_blend_equation_advanced : require\n" : "")
+			+ fragmentExt.toString() + prefix
+			+ "#define varying in\n#define texture2D texture\n#define texture2DLod textureLod\n#define gl_FragColor openfl_FragColor\n"
+			+ "layout (blend_support_all_equations) out;\nout vec4 openfl_FragColor;\n" + fragmentBody.toString();
+		return [vertex, fragment];
 	}
 
 	@:noCompletion private function __initGL():Void
@@ -559,6 +586,10 @@ class Shader
 						gl.deleteProgram(program.__glProgram);
 						program.__glProgram = fallback;
 					}
+				}
+				else if (__complexBlendPrefix() && @:privateAccess OpenGLRenderer.__complexBlendESVersion != null)
+				{
+					program.__advancedSources = __esAdvancedSources(prefix);
 				}
 				else if (__complexBlendPrefix())
 				{
