@@ -587,39 +587,60 @@ import lime.utils.Int16Array;
 		var fftSize = SPECTRUM_FFT_SIZE;
 		var start = Std.int((time / 1000) * sampleRate) - (fftSize >> 1);
 
-		var real = new Array<Float>();
-		var imag = new Array<Float>();
-		real.resize(fftSize);
-		imag.resize(fftSize);
+		__initFFTTables();
+		var half = fftSize >> 1;
+		var real = __fftReal;
+		var imag = __fftImag;
+		var window = __fftWindow;
+		var stereo = channels > 1;
 
-		for (i in 0...fftSize)
+		for (k in 0...half)
 		{
-			var frame = start + i;
-			var sample = 0.0;
+			var frame = start + (k << 1);
+			var even = 0.0;
+			var odd = 0.0;
 
 			if (frame >= 0 && frame < totalFrames)
 			{
 				var offset = frame * frameSize;
 				var l = __readSample(data, offset, bitsPerSample);
-				var r = (channels > 1) ? __readSample(data, offset + bytesPerSample, bitsPerSample) : l;
-				sample = (l + r) * 0.5;
+				even = stereo ? (l + __readSample(data, offset + bytesPerSample, bitsPerSample)) * 0.5 : l;
 			}
 
-			// Hann window: without it, the hard edges of this finite slice smear energy across
-			// every band (spectral leakage), which would make the result look noisy/flat
-			var w = 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / (fftSize - 1));
-			real[i] = sample * w;
-			imag[i] = 0;
+			if (frame + 1 >= 0 && frame + 1 < totalFrames)
+			{
+				var offset = (frame + 1) * frameSize;
+				var l = __readSample(data, offset, bitsPerSample);
+				odd = stereo ? (l + __readSample(data, offset + bytesPerSample, bitsPerSample)) * 0.5 : l;
+			}
+
+			real[k] = even * window[k << 1];
+			imag[k] = odd * window[(k << 1) + 1];
 		}
 
-		__fft(real, imag);
+		__fft(real, imag, half);
 
-		var half = fftSize >> 1;
-		var norm = 2.0 / fftSize;
-		var mags = new Array<Float>();
-		mags.resize(half);
-		for (i in 0...half)
-			mags[i] = Math.sqrt(real[i] * real[i] + imag[i] * imag[i]) * norm;
+		var norm = 1.0 / fftSize;
+		var mags = __fftMags;
+		var cosT = __fftCos;
+		var sinT = __fftSin;
+		for (k in 0...half)
+		{
+			var m = (k == 0) ? 0 : half - k;
+			var zr = real[k];
+			var zi = imag[k];
+			var cr = real[m];
+			var ci = -imag[m];
+			var er = zr + cr;
+			var ei = zi + ci;
+			var fr = zi - ci;
+			var fi = cr - zr;
+			var wr = cosT[k];
+			var wi = sinT[k];
+			var xr = er + wr * fr - wi * fi;
+			var xi = ei + wr * fi + wi * fr;
+			mags[k] = Math.sqrt(xr * xr + xi * xi) * norm;
+		}
 
 		var target = __binSpectrum(mags, sampleRate, fftSize, bands);
 
@@ -657,7 +678,7 @@ import lime.utils.Int16Array;
 	// Groups linear FFT bins into `bands` log-spaced bands - music perception is logarithmic
 	// (an octave is a doubling in Hz regardless of where it starts), so linear bins would give
 	// bass a handful of bands and treble hundreds of nearly-identical ones.
-	@:noCompletion private static function __binSpectrum(mags:Array<Float>, sampleRate:Int, fftSize:Int, bands:Int):Array<Float>
+	@:noCompletion private static function __binSpectrum(mags:haxe.ds.Vector<Float>, sampleRate:Int, fftSize:Int, bands:Int):Array<Float>
 	{
 		var result = new Array<Float>();
 		result.resize(bands);
@@ -708,22 +729,46 @@ import lime.utils.Int16Array;
 		return result;
 	}
 
-	// Iterative in-place radix-2 Cooley-Tukey FFT. `real.length` must be a power of two
-	// (always SPECTRUM_FFT_SIZE here, so no runtime check).
-	@:noCompletion private static function __fft(real:Array<Float>, imag:Array<Float>):Void
+	@:noCompletion private static var __fftReal:haxe.ds.Vector<Float>;
+	@:noCompletion private static var __fftImag:haxe.ds.Vector<Float>;
+	@:noCompletion private static var __fftMags:haxe.ds.Vector<Float>;
+	@:noCompletion private static var __fftWindow:haxe.ds.Vector<Float>;
+	@:noCompletion private static var __fftCos:haxe.ds.Vector<Float>;
+	@:noCompletion private static var __fftSin:haxe.ds.Vector<Float>;
+	@:noCompletion private static var __fftReverse:haxe.ds.Vector<Int>;
+
+	@:noCompletion private static function __initFFTTables():Void
 	{
-		var n = real.length;
+		if (__fftWindow != null) return;
 
-		var j = 0;
+		var n = SPECTRUM_FFT_SIZE;
+		var half = n >> 1;
+
+		__fftReal = new haxe.ds.Vector(half);
+		__fftImag = new haxe.ds.Vector(half);
+		__fftMags = new haxe.ds.Vector(half);
+
+		// Hann window: without it, the hard edges of this finite slice smear energy across
+		// every band (spectral leakage), which would make the result look noisy/flat
+		__fftWindow = new haxe.ds.Vector(n);
 		for (i in 0...n)
-		{
-			if (i < j)
-			{
-				var tr = real[i]; real[i] = real[j]; real[j] = tr;
-				var ti = imag[i]; imag[i] = imag[j]; imag[j] = ti;
-			}
+			__fftWindow[i] = 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / (n - 1));
 
-			var m = n >> 1;
+		__fftCos = new haxe.ds.Vector(half);
+		__fftSin = new haxe.ds.Vector(half);
+		for (k in 0...half)
+		{
+			var ang = -2 * Math.PI * k / n;
+			__fftCos[k] = Math.cos(ang);
+			__fftSin[k] = Math.sin(ang);
+		}
+
+		__fftReverse = new haxe.ds.Vector(half);
+		var j = 0;
+		for (i in 0...half)
+		{
+			__fftReverse[i] = j;
+			var m = half >> 1;
 			while (m >= 1 && (j & m) != 0)
 			{
 				j &= ~m;
@@ -731,38 +776,55 @@ import lime.utils.Int16Array;
 			}
 			j |= m;
 		}
+	}
 
+	// Iterative in-place radix-2 Cooley-Tukey FFT over the first `n` entries, using the
+	// SPECTRUM_FFT_SIZE twiddle table: `n` must be SPECTRUM_FFT_SIZE / 2.
+	@:noCompletion private static function __fft(real:haxe.ds.Vector<Float>, imag:haxe.ds.Vector<Float>, n:Int):Void
+	{
+		var reverse = __fftReverse;
+		for (i in 0...n)
+		{
+			var j = reverse[i];
+			if (i < j)
+			{
+				var tr = real[i]; real[i] = real[j]; real[j] = tr;
+				var ti = imag[i]; imag[i] = imag[j]; imag[j] = ti;
+			}
+		}
+
+		var cosT = __fftCos;
+		var sinT = __fftSin;
+		var tableSize = n << 1;
 		var len = 2;
 		while (len <= n)
 		{
-			var ang = -2 * Math.PI / len;
-			var wr = Math.cos(ang);
-			var wi = Math.sin(ang);
 			var half = len >> 1;
+			var step = Std.int(tableSize / len);
 			var i = 0;
 
 			while (i < n)
 			{
-				var curWr = 1.0;
-				var curWi = 0.0;
-
+				var t = 0;
 				for (k in 0...half)
 				{
 					var evenIdx = i + k;
-					var oddIdx = i + k + half;
+					var oddIdx = evenIdx + half;
+					var wr = cosT[t];
+					var wi = sinT[t];
+					t += step;
 
-					var tr = real[oddIdx] * curWr - imag[oddIdx] * curWi;
-					var ti = real[oddIdx] * curWi + imag[oddIdx] * curWr;
+					var orr = real[oddIdx];
+					var oii = imag[oddIdx];
+					var tr = orr * wr - oii * wi;
+					var ti = orr * wi + oii * wr;
 
-					real[oddIdx] = real[evenIdx] - tr;
-					imag[oddIdx] = imag[evenIdx] - ti;
-					real[evenIdx] += tr;
-					imag[evenIdx] += ti;
-
-					var nwr = curWr * wr - curWi * wi;
-					var nwi = curWr * wi + curWi * wr;
-					curWr = nwr;
-					curWi = nwi;
+					var er = real[evenIdx];
+					var ei = imag[evenIdx];
+					real[oddIdx] = er - tr;
+					imag[oddIdx] = ei - ti;
+					real[evenIdx] = er + tr;
+					imag[evenIdx] = ei + ti;
 				}
 
 				i += len;
@@ -784,7 +846,7 @@ import lime.utils.Int16Array;
 	}
 
 	#if lime
-	@:noCompletion private static function __readSample(data:UInt8Array, offset:Int, bitsPerSample:Int):Float
+	@:noCompletion private static inline function __readSample(data:UInt8Array, offset:Int, bitsPerSample:Int):Float
 	{
 		var b0:Int = data[offset];
 
