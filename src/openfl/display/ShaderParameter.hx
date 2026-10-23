@@ -160,6 +160,7 @@ import openfl.display3D.Context3D;
 	@:noCompletion private var __isInt:Bool;
 	@:noCompletion private var __isUniform:Bool;
 	@:noCompletion private var __length:Int;
+	@:noCompletion private var __overrideId:Int = 0;
 	@:noCompletion private var __uniformMatrix:Float32Array;
 	@:noCompletion private var __useArray:Bool;
 
@@ -604,6 +605,7 @@ import openfl.display3D.Context3D;
 	@:noCompletion private function set_name(value:String):String
 	{
 		__internal = StringTools.startsWith(value, "openfl_");
+		__overrideId = openfl.display._internal.ShaderBuffer.overrideIdOf(value);
 		return this.name = value;
 	}
 }

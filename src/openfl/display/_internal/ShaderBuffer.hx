@@ -25,14 +25,27 @@ class ShaderBuffer
 	public var inputMipFilter:Array<Context3DMipFilter>;
 	public var inputs:Array<BitmapData>;
 	public var inputWrap:Array<Context3DWrapMode>;
+	public static inline var OVERRIDE_ALPHA:Int = 1;
+	public static inline var OVERRIDE_TEXTURE_SIZE:Int = 2;
+	public static inline var OVERRIDE_COLOR_MULTIPLIER:Int = 3;
+	public static inline var OVERRIDE_COLOR_OFFSET:Int = 4;
+	public static inline var OVERRIDE_HAS_COLOR_TRANSFORM:Int = 5;
+	public static inline var OVERRIDE_MATRIX:Int = 6;
+
+	private static var __customOverrideIds:Map<String, Int> = new Map();
+	private static var __nextOverrideId:Int = 7;
+
 	public var overrideBoolCount:Int;
+	public var overrideBoolIds:Array<Int>;
 	public var overrideBoolNames:Array<String>;
 	public var overrideBoolValues:Array<Array<Bool>>;
 	// public var overrideCount:Int;
 	public var overrideFloatCount:Int;
+	public var overrideFloatIds:Array<Int>;
 	public var overrideFloatNames:Array<String>;
 	public var overrideFloatValues:Array<Array<Float>>;
 	public var overrideIntCount:Int;
+	public var overrideIntIds:Array<Int>;
 	public var overrideIntNames:Array<String>;
 	@SuppressWarnings("checkstyle:Dynamic") public var overrideIntValues:Array<Array<Dynamic>>;
 	// public var overrideNames:Array<String>;
@@ -62,6 +75,9 @@ class ShaderBuffer
 		// overrideNames = [];
 		// overrideValues = [];
 		overrideIntNames = [];
+		overrideIntIds = [];
+		overrideFloatIds = [];
+		overrideBoolIds = [];
 		overrideIntValues = [];
 		overrideFloatNames = [];
 		overrideFloatValues = [];
@@ -75,8 +91,37 @@ class ShaderBuffer
 		paramTypes = [];
 	}
 
+	public static function overrideIdOf(name:String):Int
+	{
+		switch (name)
+		{
+			case "openfl_Alpha": return OVERRIDE_ALPHA;
+			case "openfl_TextureSize": return OVERRIDE_TEXTURE_SIZE;
+			case "openfl_ColorMultiplier": return OVERRIDE_COLOR_MULTIPLIER;
+			case "openfl_ColorOffset": return OVERRIDE_COLOR_OFFSET;
+			case "openfl_HasColorTransform": return OVERRIDE_HAS_COLOR_TRANSFORM;
+			case "openfl_Matrix": return OVERRIDE_MATRIX;
+			default:
+		}
+
+		if (name == null) return 0;
+		var id = __customOverrideIds.get(name);
+		if (id == null)
+		{
+			id = __nextOverrideId++;
+			__customOverrideIds.set(name, id);
+		}
+		return id;
+	}
+
 	public function addBoolOverride(name:String, values:Array<Bool>):Void
 	{
+		addBoolOverrideById(overrideIdOf(name), values, name);
+	}
+
+	public function addBoolOverrideById(id:Int, values:Array<Bool>, name:String = null):Void
+	{
+		overrideBoolIds[overrideBoolCount] = id;
 		overrideBoolNames[overrideBoolCount] = name;
 		overrideBoolValues[overrideBoolCount] = values;
 		overrideBoolCount++;
@@ -84,6 +129,12 @@ class ShaderBuffer
 
 	public function addFloatOverride(name:String, values:Array<Float>):Void
 	{
+		addFloatOverrideById(overrideIdOf(name), values, name);
+	}
+
+	public function addFloatOverrideById(id:Int, values:Array<Float>, name:String = null):Void
+	{
+		overrideFloatIds[overrideFloatCount] = id;
 		overrideFloatNames[overrideFloatCount] = name;
 		overrideFloatValues[overrideFloatCount] = values;
 		overrideFloatCount++;
@@ -91,6 +142,12 @@ class ShaderBuffer
 
 	public function addIntOverride(name:String, values:Array<Int>):Void
 	{
+		addIntOverrideById(overrideIdOf(name), values, name);
+	}
+
+	public function addIntOverrideById(id:Int, values:Array<Int>, name:String = null):Void
+	{
+		overrideIntIds[overrideIntCount] = id;
 		overrideIntNames[overrideIntCount] = name;
 		overrideIntValues[overrideIntCount] = values;
 		overrideIntCount++;

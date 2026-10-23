@@ -249,7 +249,7 @@ class OpenGLRenderer extends DisplayObjectRenderer
 
 		if (__currentShaderBuffer != null)
 		{
-			__currentShaderBuffer.addFloatOverride("openfl_Alpha", __alphaValue);
+			__currentShaderBuffer.addFloatOverrideById(ShaderBuffer.OVERRIDE_ALPHA, __alphaValue);
 		}
 		else if (__currentShader != null)
 		{
@@ -270,7 +270,7 @@ class OpenGLRenderer extends DisplayObjectRenderer
 				__textureSizeValue[0] = bitmapData.__textureWidth;
 				__textureSizeValue[1] = bitmapData.__textureHeight;
 
-				__currentShaderBuffer.addFloatOverride("openfl_TextureSize", __textureSizeValue);
+				__currentShaderBuffer.addFloatOverrideById(ShaderBuffer.OVERRIDE_TEXTURE_SIZE, __textureSizeValue);
 			}
 		}
 		else if (__currentShader != null)
@@ -323,8 +323,8 @@ class OpenGLRenderer extends DisplayObjectRenderer
 
 			if (__currentShaderBuffer != null)
 			{
-				__currentShaderBuffer.addFloatOverride("openfl_ColorMultiplier", __colorMultipliersValue);
-				__currentShaderBuffer.addFloatOverride("openfl_ColorOffset", __colorOffsetsValue);
+				__currentShaderBuffer.addFloatOverrideById(ShaderBuffer.OVERRIDE_COLOR_MULTIPLIER, __colorMultipliersValue);
+				__currentShaderBuffer.addFloatOverrideById(ShaderBuffer.OVERRIDE_COLOR_OFFSET, __colorOffsetsValue);
 			}
 			else if (__currentShader != null)
 			{
@@ -336,8 +336,8 @@ class OpenGLRenderer extends DisplayObjectRenderer
 		{
 			if (__currentShaderBuffer != null)
 			{
-				__currentShaderBuffer.addFloatOverride("openfl_ColorMultiplier", __emptyColorValue);
-				__currentShaderBuffer.addFloatOverride("openfl_ColorOffset", __emptyColorValue);
+				__currentShaderBuffer.addFloatOverrideById(ShaderBuffer.OVERRIDE_COLOR_MULTIPLIER, __emptyColorValue);
+				__currentShaderBuffer.addFloatOverrideById(ShaderBuffer.OVERRIDE_COLOR_OFFSET, __emptyColorValue);
 			}
 			else if (__currentShader != null)
 			{
@@ -357,7 +357,7 @@ class OpenGLRenderer extends DisplayObjectRenderer
 
 		if (__currentShaderBuffer != null)
 		{
-			__currentShaderBuffer.addBoolOverride("openfl_HasColorTransform", __hasColorTransformValue);
+			__currentShaderBuffer.addBoolOverrideById(ShaderBuffer.OVERRIDE_HAS_COLOR_TRANSFORM, __hasColorTransformValue);
 		}
 		else if (__currentShader != null)
 		{
@@ -372,7 +372,7 @@ class OpenGLRenderer extends DisplayObjectRenderer
 	{
 		if (__currentShaderBuffer != null)
 		{
-			__currentShaderBuffer.addFloatOverride("openfl_Matrix", matrix);
+			__currentShaderBuffer.addFloatOverrideById(ShaderBuffer.OVERRIDE_MATRIX, matrix);
 		}
 		else if (__currentShader != null)
 		{
