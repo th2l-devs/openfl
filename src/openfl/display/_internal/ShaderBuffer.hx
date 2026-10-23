@@ -32,8 +32,8 @@ class ShaderBuffer
 	public static inline var OVERRIDE_HAS_COLOR_TRANSFORM:Int = 5;
 	public static inline var OVERRIDE_MATRIX:Int = 6;
 
-	private static var __customOverrideIds:Map<String, Int> = new Map();
-	private static var __nextOverrideId:Int = 7;
+	private static var __customOverrideIds:Map<String, Int>;
+	private static var __nextOverrideId:Int;
 
 	public var overrideBoolCount:Int;
 	public var overrideBoolIds:Array<Int>;
@@ -105,6 +105,11 @@ class ShaderBuffer
 		}
 
 		if (name == null) return 0;
+		if (__customOverrideIds == null)
+		{
+			__customOverrideIds = new Map();
+			__nextOverrideId = 7;
+		}
 		var id = __customOverrideIds.get(name);
 		if (id == null)
 		{
