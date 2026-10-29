@@ -998,7 +998,10 @@ class OpenGLRenderer extends DisplayObjectRenderer
 		// two textures have to be the same size for a coordinate to mean the same pixel in both
 		if (__backdropBitmapData == null || __backdropBitmapData.width != width || __backdropBitmapData.height != height)
 		{
-			__backdropBitmapData = new BitmapData(width, height, true, 0);
+			if (__backdropBitmapData != null) __backdropBitmapData.dispose();
+			__backdropBitmapData = BitmapData.fromTexture(__context3D.createRectangleTexture(width, height, openfl.display3D.Context3DTextureFormat.BGRA, true));
+			if (__backdropBitmapData == null) __backdropBitmapData = new BitmapData(width, height, true, 0);
+			else __backdropBitmapData.__hasSharedTexture = false;
 		}
 
 		var texture = __backdropBitmapData.getTexture(__context3D);

@@ -557,7 +557,7 @@ class DisplayObjectRenderer extends EventDispatcher
 		if (!__cacheTargetFits(displayObject.__cacheBitmapData, bitmapWidth, bitmapHeight, exactSize))
 		{
 			if (displayObject.__cacheBitmapData != null) displayObject.__cacheBitmapData.dispose();
-			displayObject.__cacheBitmapData = new BitmapData(bitmapWidth, bitmapHeight, true, bitmapColor);
+			displayObject.__cacheBitmapData = __newCacheTarget(bitmapWidth, bitmapHeight, bitmapColor);
 
 			if (displayObject.__cacheBitmap == null) displayObject.__cacheBitmap = new Bitmap();
 			displayObject.__cacheBitmap.__bitmapData = displayObject.__cacheBitmapData;
@@ -577,12 +577,30 @@ class DisplayObjectRenderer extends EventDispatcher
 		}
 	}
 
+	@:noCompletion private function __newCacheTarget(width:Int, height:Int, color:Int):BitmapData
+	{
+		#if (lime && !(js && html5))
+		var stage = openfl.Lib.current.stage;
+		if (__type == OPENGL && stage != null && stage.context3D != null)
+		{
+			var bitmapData = BitmapData.fromTexture(stage.context3D.createRectangleTexture(width, height, openfl.display3D.Context3DTextureFormat.BGRA, true));
+			if (bitmapData != null)
+			{
+				bitmapData.__hasSharedTexture = false;
+				bitmapData.__fillRect(bitmapData.rect, color, true);
+				return bitmapData;
+			}
+		}
+		#end
+		return new BitmapData(width, height, true, color);
+	}
+
 	@:noCompletion private function __clearCacheTarget(bitmapData:BitmapData, width:Int, height:Int, exactSize:Bool, hardware:Bool):BitmapData
 	{
 		if (!__cacheTargetFits(bitmapData, width, height, exactSize) || (!hardware && bitmapData.image == null))
 		{
 			if (bitmapData != null) bitmapData.dispose();
-			return new BitmapData(width, height, true, 0);
+			return hardware ? __newCacheTarget(width, height, 0) : new BitmapData(width, height, true, 0);
 		}
 
 		bitmapData.fillRect(bitmapData.rect, 0);
