@@ -15,6 +15,8 @@ class Context3DDisplayObjectContainer
 
 		if (!displayObjectContainer.__renderable || displayObjectContainer.__worldAlpha <= 0) return;
 
+		if (openfl.display.RenderStats.markName != null && displayObjectContainer.name == openfl.display.RenderStats.markName) @:privateAccess openfl.display.RenderStats.__mark();
+
 		Context3DDisplayObject.renderDrawable(displayObjectContainer, renderer);
 
 		if (displayObjectContainer.__cacheBitmap != null && !displayObjectContainer.__isCacheBitmapRender) return;

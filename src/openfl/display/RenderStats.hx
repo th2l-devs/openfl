@@ -16,6 +16,18 @@ class RenderStats
 	public static var bufferUploads(default, null):Int = 0;
 	public static var bufferUploadBytes(default, null):Int = 0;
 	public static var frames(default, null):Int = 0;
+	public static var markedDraws(default, null):Int = 0;
+	public static var markedShaderSwitches(default, null):Int = 0;
+	public static var markName:String = null;
+	@:noCompletion private static var __markDraws:Int = -1;
+	@:noCompletion private static var __markShaders:Int = -1;
+
+	@:noCompletion private static function __mark():Void
+	{
+		if (__markDraws >= 0) return;
+		__markDraws = __drawCalls;
+		__markShaders = __shaderSwitches;
+	}
 
 	@:noCompletion private static var __drawCalls:Int = 0;
 	@:noCompletion private static var __textureBinds:Int = 0;
@@ -39,6 +51,10 @@ class RenderStats
 		bufferUploads = __bufferUploads;
 		bufferUploadBytes = __bufferUploadBytes;
 		frames++;
+		markedDraws = __markDraws >= 0 ? __drawCalls - __markDraws : 0;
+		markedShaderSwitches = __markShaders >= 0 ? __shaderSwitches - __markShaders : 0;
+		__markDraws = -1;
+		__markShaders = -1;
 
 		__drawCalls = 0;
 		__textureBinds = 0;
