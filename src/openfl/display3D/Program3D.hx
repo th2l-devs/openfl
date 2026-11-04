@@ -6,6 +6,7 @@ import openfl.display3D._internal.GLShader;
 import openfl.display3D._internal.GLShaderDiagnostics;
 import openfl.display3D._internal.GLUniformLocation;
 import openfl.display3D._internal.AGALConverter;
+import openfl.display3D.textures.TextureBase;
 import openfl.display._internal.SamplerState;
 import openfl.utils._internal.Float32Array;
 import openfl.utils._internal.Log;
@@ -49,6 +50,7 @@ import lime.utils.BytePointer;
 @:noDebug
 #end
 @:access(openfl.display3D.Context3D)
+@:access(openfl.display3D.textures.TextureBase)
 @:access(openfl.display.ShaderInput)
 @:access(openfl.display.ShaderParameter)
 @:access(openfl.display.Stage)
@@ -56,6 +58,7 @@ import lime.utils.BytePointer;
 {
 	@:noCompletion private var __agalAlphaSamplerEnabled:Array<Uniform>;
 	@:noCompletion private var __agalAlphaSamplerUniforms:List<Uniform>;
+	@:noCompletion private var __agalAlphaSamplers:Array<Uniform>;
 	@:noCompletion private var __agalFragmentUniformMap:UniformMap;
 	@:noCompletion private var __agalPositionScale:Uniform;
 	@:noCompletion private var __agalSamplerUniforms:List<Uniform>;
@@ -104,6 +107,7 @@ import lime.utils.BytePointer;
 			__agalSamplerUniforms = new List<Uniform>();
 			__agalAlphaSamplerUniforms = new List<Uniform>();
 			__agalAlphaSamplerEnabled = new Array<Uniform>();
+			__agalAlphaSamplers = new Array<Uniform>();
 		}
 		else
 		{
@@ -543,7 +547,7 @@ import lime.utils.BytePointer;
 		var samplerStates = new Array<SamplerState>();
 
 		var glslVertex = AGALConverter.convertToGLSL(vertexProgram, null);
-		var glslFragment = AGALConverter.convertToGLSL(fragmentProgram, samplerStates);
+		var glslFragment = AGALConverter.convertToGLSL(fragmentProgram, samplerStates, TextureBase.__usesSeparateAlphaTextures(__context));
 
 		if (Log.level == LogLevel.VERBOSE)
 		{
@@ -643,6 +647,7 @@ import lime.utils.BytePointer;
 		__agalSamplerUniforms.clear();
 		__agalAlphaSamplerUniforms.clear();
 		__agalAlphaSamplerEnabled = [];
+		__agalAlphaSamplers = [];
 
 		__agalSamplerUsageMask = 0;
 
@@ -718,7 +723,7 @@ import lime.utils.BytePointer;
 			else if (StringTools.startsWith(uniform.name, "sampler") && StringTools.endsWith(uniform.name, "_alpha"))
 			{
 				var len = uniform.name.indexOf("_") - 7;
-				uniform.regIndex = Std.parseInt(uniform.name.substring(7, 7 + len)) + 4;
+				uniform.regIndex = Std.parseInt(uniform.name.substring(7, 7 + len));
 				__agalAlphaSamplerUniforms.add(uniform);
 			}
 			else if (StringTools.startsWith(uniform.name, "sampler") && StringTools.endsWith(uniform.name, "_alphaEnabled"))
@@ -731,6 +736,16 @@ import lime.utils.BytePointer;
 			{
 				Log.verbose('${i} name:${uniform.name} type:${uniform.type} size:${uniform.size} location:${uniform.location}');
 			}
+		}
+
+		// separate alpha textures get the texture units after the last sampler, so that they never
+		// share a unit with another texture; until here, 'regIndex' held their sampler's index
+		var alphaSamplerUnits = __getAlphaSamplerUnits(__agalSamplerUsageMask, [for (uniform in __agalAlphaSamplerUniforms) uniform.regIndex]);
+
+		for (uniform in __agalAlphaSamplerUniforms)
+		{
+			__agalAlphaSamplers[uniform.regIndex] = uniform;
+			uniform.regIndex = alphaSamplerUnits.get(uniform.regIndex);
 		}
 
 		__agalVertexUniformMap = new UniformMap(Lambda.array(vertexUniforms));
@@ -903,6 +918,27 @@ import lime.utils.BytePointer;
 
 			// }
 		}
+	}
+
+	// Returns the texture unit for the separate alpha texture of each given sampler: the units
+	// following the highest sampler in use, in ascending order of the samplers.
+	@:noCompletion private static function __getAlphaSamplerUnits(samplerUsageMask:Int, alphaSamplers:Array<Int>):Map<Int, Int>
+	{
+		var unit = 0;
+		while (unit < 32 && (samplerUsageMask >>> unit) != 0)
+		{
+			unit++;
+		}
+
+		var samplers = alphaSamplers.copy();
+		samplers.sort(function(a, b) return a - b);
+
+		var units = new Map<Int, Int>();
+		for (sampler in samplers)
+		{
+			units.set(sampler, unit++);
+		}
+		return units;
 	}
 
 	@:noCompletion private function __getSamplerState(sampler:Int):SamplerState
