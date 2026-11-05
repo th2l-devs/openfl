@@ -197,13 +197,13 @@ import lime._internal.graphics.ImageDataUtil; // TODO
 		#if !macro
 		if (pass < __horizontalPasses)
 		{
-			var scale = Math.pow(0.5, pass >> 1);
+			var scale = Math.pow(0.5, pass) * 1.41421356;
 			__blurShader.uRadius.value[0] = blurX * scale;
 			__blurShader.uRadius.value[1] = 0;
 		}
 		else
 		{
-			var scale = Math.pow(0.5, (pass - __horizontalPasses) >> 1);
+			var scale = Math.pow(0.5, pass - __horizontalPasses) * 1.41421356;
 			__blurShader.uRadius.value[0] = 0;
 			__blurShader.uRadius.value[1] = blurY * scale;
 		}
@@ -215,13 +215,27 @@ import lime._internal.graphics.ImageDataUtil; // TODO
 	@:noCompletion inline function __padFor(value:Float):Int
 	{
 		if (value <= 0) return 0;
-		var passes = (__quality > 0 ? __quality : 1);
 		#if lime
-		var reach = value * passes * 3.0;
+		var reach = value * 3.0;
 		#else
 		var reach = value;
 		#end
 		return Std.int(Math.ceil(reach)) + 2; 
+	}
+
+	@:noCompletion inline function __levels(value:Float):Int
+	{
+		if (value <= 0) return 0;
+		var levels = Math.ceil(Math.log(Math.max(1, value)) / Math.log(2)) + 1;
+		var limit = (__quality > 0 ? __quality : 1) + 2;
+		return levels < limit ? levels : limit;
+	}
+
+	@:noCompletion private function __updatePasses():Void
+	{
+		__horizontalPasses = __levels(__blurX);
+		__verticalPasses = __levels(__blurY);
+		__numShaderPasses = __horizontalPasses + __verticalPasses;
 	}
 
 	// Get & Set Methods
@@ -236,6 +250,7 @@ import lime._internal.graphics.ImageDataUtil; // TODO
 		{
 			__blurX = value;
 			__renderDirty = true;
+			__updatePasses();
 
 			var p = __padFor(value);
 			__leftExtension = p;
@@ -255,6 +270,7 @@ import lime._internal.graphics.ImageDataUtil; // TODO
 		{
 			__blurY = value;
 			__renderDirty = true;
+			__updatePasses();
 
 			var p = __padFor(value);
 			__topExtension = p;
@@ -270,15 +286,9 @@ import lime._internal.graphics.ImageDataUtil; // TODO
 
 	@:noCompletion private function set_quality(value:Int):Int
 	{
-		// TODO: Quality effect with fewer passes?
-
-		__horizontalPasses = (__blurX <= 0) ? 0 : Math.round(__blurX * (value / 4)) + 1;
-		__verticalPasses = (__blurY <= 0) ? 0 : Math.round(__blurY * (value / 4)) + 1;
-
-		__numShaderPasses = __horizontalPasses + __verticalPasses;
-
 		if (value != __quality) __renderDirty = true;
 		__quality = value;
+		__updatePasses();
 		set_blurX(__blurX);
 		set_blurY(__blurY);
 		return __quality;
