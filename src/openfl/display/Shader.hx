@@ -356,6 +356,11 @@ class Shader
 
 		__buildError = null;
 
+		#if (lime && sys && lime_cffi && !macro)
+		var cached = openfl.display3D._internal.GLProgramCache.load(gl, vertexSource, fragmentSource);
+		if (cached != null) return cached;
+		#end
+
 		var vertexShader = __createGLShader(vertexSource, gl.VERTEX_SHADER, lineOffset);
 		var fragmentShader = __createGLShader(fragmentSource, gl.FRAGMENT_SHADER, lineOffset);
 
@@ -373,9 +378,16 @@ class Shader
 
 		gl.attachShader(program, vertexShader);
 		gl.attachShader(program, fragmentShader);
+		#if (lime && sys && lime_cffi && !macro)
+		openfl.display3D._internal.GLProgramCache.prepare(gl, program);
+		#end
 		gl.linkProgram(program);
 
 		if (__buildError == null) __buildError = GLShaderDiagnostics.programError(gl, program, fragmentSource, lineOffset);
+
+		#if (lime && sys && lime_cffi && !macro)
+		if (__buildError == null) openfl.display3D._internal.GLProgramCache.store(gl, program, vertexSource, fragmentSource);
+		#end
 
 		return program;
 	}
