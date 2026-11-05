@@ -4,11 +4,8 @@ package openfl.display3D._internal;
 import haxe.crypto.Md5;
 import haxe.io.Bytes;
 import lime.graphics.WebGLRenderContext;
-import lime.graphics.opengl.GLProgram as LimeProgram;
 import lime.graphics.opengl.GLProgramBinary;
-import lime.system.System;
-import sys.FileSystem;
-import sys.io.File;
+import lime.system.DiskCache;
 
 class GLProgramCache
 {
@@ -17,9 +14,9 @@ class GLProgramCache
 	public static var misses(default, null):Int = 0;
 
 	private static inline var VERSION:Int = 1;
+	private static inline var KIND:String = "shaders";
 	private static var checked:Bool = false;
 	private static var usable:Bool = false;
-	private static var folder:String = null;
 	private static var driver:String = "";
 
 	private static function ready(gl:WebGLRenderContext):Bool
@@ -31,8 +28,7 @@ class GLProgramCache
 		{
 			if (!GLProgramBinary.ready()) return false;
 			driver = VERSION + "|" + gl.getParameter(gl.VENDOR) + "|" + gl.getParameter(gl.RENDERER) + "|" + gl.getParameter(gl.VERSION);
-			folder = System.applicationStorageDirectory + "shadercache/";
-			if (!FileSystem.exists(folder)) FileSystem.createDirectory(folder);
+			DiskCache.removeLegacy("shadercache");
 			usable = true;
 		}
 		catch (_:Dynamic)
@@ -42,23 +38,23 @@ class GLProgramCache
 		return usable;
 	}
 
-	private static inline function pathOf(vertex:String, fragment:String):String
+	private static inline function keyOf(vertex:String, fragment:String):String
 	{
-		return folder + Md5.encode(driver + "\x01" + vertex + "\x01" + fragment) + ".bin";
+		return Md5.encode(driver + "\x01" + vertex + "\x01" + fragment) + ".bin";
 	}
 
 	public static function load(gl:WebGLRenderContext, vertex:String, fragment:String):Dynamic
 	{
 		if (!ready(gl)) return null;
-		final path = pathOf(vertex, fragment);
+		final key = keyOf(vertex, fragment);
 		try
 		{
-			if (!FileSystem.exists(path))
+			final file = DiskCache.get(KIND, key);
+			if (file == null)
 			{
 				misses++;
 				return null;
 			}
-			final file = File.getBytes(path);
 			if (file.length > 4)
 			{
 				final program = gl.createProgram();
@@ -69,7 +65,7 @@ class GLProgramCache
 				}
 				gl.deleteProgram(program);
 			}
-			FileSystem.deleteFile(path);
+			DiskCache.remove(KIND, key);
 		}
 		catch (_:Dynamic) {}
 		misses++;
@@ -92,10 +88,7 @@ class GLProgramCache
 			final out = Bytes.alloc(data.length + 4);
 			out.setInt32(0, format);
 			out.blit(4, data, 0, data.length);
-			final path = pathOf(vertex, fragment);
-			File.saveBytes(path + ".tmp", out);
-			if (FileSystem.exists(path)) FileSystem.deleteFile(path);
-			FileSystem.rename(path + ".tmp", path);
+			DiskCache.put(KIND, keyOf(vertex, fragment), out);
 		}
 		catch (_:Dynamic) {}
 	}
