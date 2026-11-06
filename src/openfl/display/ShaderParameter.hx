@@ -216,21 +216,21 @@ import openfl.display3D.Context3D;
 				switch (type)
 				{
 					case BOOL:
-						gl.uniform1i(index, boolValue[0] ? 1 : 0);
+						if (context.__uniformChanged(index, boolValue[0] ? 1 : 0, 0, 0, 0)) gl.uniform1i(index, boolValue[0] ? 1 : 0);
 					case BOOL2:
-						gl.uniform2i(index, boolValue[0] ? 1 : 0, boolValue[1] ? 1 : 0);
+						if (context.__uniformChanged(index, boolValue[0] ? 1 : 0, boolValue[1] ? 1 : 0, 0, 0)) gl.uniform2i(index, boolValue[0] ? 1 : 0, boolValue[1] ? 1 : 0);
 					case BOOL3:
-						gl.uniform3i(index, boolValue[0] ? 1 : 0, boolValue[1] ? 1 : 0, boolValue[2] ? 1 : 0);
+						if (context.__uniformChanged(index, boolValue[0] ? 1 : 0, boolValue[1] ? 1 : 0, boolValue[2] ? 1 : 0, 0)) gl.uniform3i(index, boolValue[0] ? 1 : 0, boolValue[1] ? 1 : 0, boolValue[2] ? 1 : 0);
 					case BOOL4:
-						gl.uniform4i(index, boolValue[0] ? 1 : 0, boolValue[1] ? 1 : 0, boolValue[2] ? 1 : 0, boolValue[3] ? 1 : 0);
+						if (context.__uniformChanged(index, boolValue[0] ? 1 : 0, boolValue[1] ? 1 : 0, boolValue[2] ? 1 : 0, boolValue[3] ? 1 : 0)) gl.uniform4i(index, boolValue[0] ? 1 : 0, boolValue[1] ? 1 : 0, boolValue[2] ? 1 : 0, boolValue[3] ? 1 : 0);
 					case FLOAT:
-						gl.uniform1f(index, floatValue[0]);
+						if (context.__uniformChanged(index, floatValue[0], 0, 0, 0)) gl.uniform1f(index, floatValue[0]);
 					case FLOAT2:
-						gl.uniform2f(index, floatValue[0], floatValue[1]);
+						if (context.__uniformChanged(index, floatValue[0], floatValue[1], 0, 0)) gl.uniform2f(index, floatValue[0], floatValue[1]);
 					case FLOAT3:
-						gl.uniform3f(index, floatValue[0], floatValue[1], floatValue[2]);
+						if (context.__uniformChanged(index, floatValue[0], floatValue[1], floatValue[2], 0)) gl.uniform3f(index, floatValue[0], floatValue[1], floatValue[2]);
 					case FLOAT4:
-						gl.uniform4f(index, floatValue[0], floatValue[1], floatValue[2], floatValue[3]);
+						if (context.__uniformChanged(index, floatValue[0], floatValue[1], floatValue[2], floatValue[3])) gl.uniform4f(index, floatValue[0], floatValue[1], floatValue[2], floatValue[3]);
 
 					case MATRIX2X2:
 						for (i in 0...4)
@@ -262,13 +262,13 @@ import openfl.display3D.Context3D;
 						gl.uniformMatrix4fv(index, false, __uniformMatrix);
 
 					case INT:
-						gl.uniform1i(index, intValue[0]);
+						if (context.__uniformChanged(index, intValue[0], 0, 0, 0)) gl.uniform1i(index, intValue[0]);
 					case INT2:
-						gl.uniform2i(index, intValue[0], intValue[1]);
+						if (context.__uniformChanged(index, intValue[0], intValue[1], 0, 0)) gl.uniform2i(index, intValue[0], intValue[1]);
 					case INT3:
-						gl.uniform3i(index, intValue[0], intValue[1], intValue[2]);
+						if (context.__uniformChanged(index, intValue[0], intValue[1], intValue[2], 0)) gl.uniform3i(index, intValue[0], intValue[1], intValue[2]);
 					case INT4:
-						gl.uniform4i(index, intValue[0], intValue[1], intValue[2], intValue[3]);
+						if (context.__uniformChanged(index, intValue[0], intValue[1], intValue[2], intValue[3])) gl.uniform4i(index, intValue[0], intValue[1], intValue[2], intValue[3]);
 
 					default:
 				}
@@ -278,21 +278,21 @@ import openfl.display3D.Context3D;
 				switch (type)
 				{
 					case BOOL, INT:
-						gl.uniform1i(index, 0);
+						if (context.__uniformChanged(index, 0, 0, 0, 0)) gl.uniform1i(index, 0);
 					case BOOL2, INT2:
-						gl.uniform2i(index, 0, 0);
+						if (context.__uniformChanged(index, 0, 0, 0, 0)) gl.uniform2i(index, 0, 0);
 					case BOOL3, INT3:
-						gl.uniform3i(index, 0, 0, 0);
+						if (context.__uniformChanged(index, 0, 0, 0, 0)) gl.uniform3i(index, 0, 0, 0);
 					case BOOL4, INT4:
-						gl.uniform4i(index, 0, 0, 0, 0);
+						if (context.__uniformChanged(index, 0, 0, 0, 0)) gl.uniform4i(index, 0, 0, 0, 0);
 					case FLOAT:
-						gl.uniform1f(index, 0);
+						if (context.__uniformChanged(index, 0, 0, 0, 0)) gl.uniform1f(index, 0);
 					case FLOAT2:
-						gl.uniform2f(index, 0, 0);
+						if (context.__uniformChanged(index, 0, 0, 0, 0)) gl.uniform2f(index, 0, 0);
 					case FLOAT3:
-						gl.uniform3f(index, 0, 0, 0);
+						if (context.__uniformChanged(index, 0, 0, 0, 0)) gl.uniform3f(index, 0, 0, 0);
 					case FLOAT4:
-						gl.uniform4f(index, 0, 0, 0, 0);
+						if (context.__uniformChanged(index, 0, 0, 0, 0)) gl.uniform4f(index, 0, 0, 0, 0);
 
 					case MATRIX2X2:
 						for (i in 0...4)
@@ -448,22 +448,22 @@ import openfl.display3D.Context3D;
 				switch (type)
 				{
 					case BOOL, INT:
-						gl.uniform1i(index, Std.int(buffer[position]));
+						if (context.__uniformChanged(index, Std.int(buffer[position]), 0, 0, 0)) gl.uniform1i(index, Std.int(buffer[position]));
 					case BOOL2, INT2:
-						gl.uniform2i(index, Std.int(buffer[position]), Std.int(buffer[position + 1]));
+						if (context.__uniformChanged(index, Std.int(buffer[position]), Std.int(buffer[position + 1]), 0, 0)) gl.uniform2i(index, Std.int(buffer[position]), Std.int(buffer[position + 1]));
 					case BOOL3, INT3:
-						gl.uniform3i(index, Std.int(buffer[position]), Std.int(buffer[position + 1]), Std.int(buffer[position + 2]));
+						if (context.__uniformChanged(index, Std.int(buffer[position]), Std.int(buffer[position + 1]), Std.int(buffer[position + 2]), 0)) gl.uniform3i(index, Std.int(buffer[position]), Std.int(buffer[position + 1]), Std.int(buffer[position + 2]));
 					case BOOL4, INT4:
-						gl.uniform4i(index, Std.int(buffer[position]), Std.int(buffer[position + 1]), Std.int(buffer[position + 2]),
+						if (context.__uniformChanged(index, Std.int(buffer[position]), Std.int(buffer[position + 1]), Std.int(buffer[position + 2]), Std.int(buffer[position + 3]))) gl.uniform4i(index, Std.int(buffer[position]), Std.int(buffer[position + 1]), Std.int(buffer[position + 2]),
 							Std.int(buffer[position + 3]));
 					case FLOAT:
-						gl.uniform1f(index, buffer[position]);
+						if (context.__uniformChanged(index, buffer[position], 0, 0, 0)) gl.uniform1f(index, buffer[position]);
 					case FLOAT2:
-						gl.uniform2f(index, buffer[position], buffer[position + 1]);
+						if (context.__uniformChanged(index, buffer[position], buffer[position + 1], 0, 0)) gl.uniform2f(index, buffer[position], buffer[position + 1]);
 					case FLOAT3:
-						gl.uniform3f(index, buffer[position], buffer[position + 1], buffer[position + 2]);
+						if (context.__uniformChanged(index, buffer[position], buffer[position + 1], buffer[position + 2], 0)) gl.uniform3f(index, buffer[position], buffer[position + 1], buffer[position + 2]);
 					case FLOAT4:
-						gl.uniform4f(index, buffer[position], buffer[position + 1], buffer[position + 2], buffer[position + 3]);
+						if (context.__uniformChanged(index, buffer[position], buffer[position + 1], buffer[position + 2], buffer[position + 3])) gl.uniform4f(index, buffer[position], buffer[position + 1], buffer[position + 2], buffer[position + 3]);
 
 					case MATRIX2X2:
 						for (i in 0...4)

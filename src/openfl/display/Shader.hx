@@ -859,6 +859,7 @@ class Shader
 
 	@:noCompletion private function __updateGL():Void
 	{
+		__context.__uniformCache = program.__uniformCache;
 		var textureCount = 0;
 
 		for (input in __inputBitmapData)
@@ -885,6 +886,7 @@ class Shader
 
 	@:noCompletion private function __updateGLFromBuffer(shaderBuffer:ShaderBuffer, bufferOffset:Int):Void
 	{
+		__context.__uniformCache = program.__uniformCache;
 		var textureCount = 0;
 		var input:ShaderInput<BitmapData>;
 		var inputData:BitmapData;

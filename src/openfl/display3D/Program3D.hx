@@ -70,6 +70,7 @@ import lime.utils.BytePointer;
 	@:noCompletion private var __glFragmentShader:GLShader;
 	@:noCompletion private var __glFragmentSource:String;
 	@:noCompletion private var __glProgram:GLProgram;
+	@:noCompletion public var __uniformCache:Array<Float> = [];
 	@:noCompletion private var __glslAttribNames:Array<String>;
 	@:noCompletion private var __glslAttribTypes:Array<ShaderParameterType>;
 	@:noCompletion private var __glslSamplerNames:Array<String>;

@@ -1259,6 +1259,7 @@ import lime.math.Vector2;
 		}
 
 		var count = (numTriangles == -1) ? indexBuffer.__numIndices : (numTriangles * 3);
+		if (openfl.display.RenderProfiler.capturing) openfl.display.RenderProfiler.__drawn(this, count);
 
 		__bindGLElementArrayBuffer(indexBuffer.__id);
 		var complexBlend = __usingComplexBlend && __complexEquation != 0 && __contextState.__enableGLBlend;
@@ -2000,6 +2001,13 @@ import lime.math.Vector2;
 			gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
 			__contextState.__currentGLFramebuffer = framebuffer;
 			@:privateAccess openfl.display.RenderStats.__targetSwitches++;
+			if (openfl.display.RenderProfiler.capturing) openfl.display.RenderProfiler.__bound(this);
+			final targetTrace = openfl.display.RenderStats.targetTrace;
+			if (targetTrace != null)
+			{
+				final target = __state.renderToTexture;
+				targetTrace.push(target == null ? "screen" : target.__width + "x" + target.__height);
+			}
 		}
 	}
 
@@ -2301,6 +2309,36 @@ import lime.math.Vector2;
 		}
 	}
 
+	@:noCompletion public var __uniformCache:Array<Float> = null;
+
+	@:noCompletion public function __uniformChanged(index:Int, a:Float, b:Float, c:Float, d:Float):Bool
+	{
+		final cache = __uniformCache;
+		if (cache == null || index < 0 || index > 4095) return true;
+		final i = index * 4;
+		while (cache.length < i + 4)
+			cache.push(0);
+		if (cache[i] == a && cache[i + 1] == b && cache[i + 2] == c && cache[i + 3] == d) return false;
+		cache[i] = a;
+		cache[i + 1] = b;
+		cache[i + 2] = c;
+		cache[i + 3] = d;
+		return true;
+	}
+
+	static final __discardDepthStencil:Array<Int> = [0x8D00, 0x8D20];
+
+	@:noCompletion private function __releaseDepthStencil():Void
+	{
+		#if !js
+		final previous = __contextState.renderToTexture;
+		if (previous == null || previous.__glDepthRenderbuffer == null || __state.stencilReferenceValue != 0) return;
+		if (__contextState.__currentGLFramebuffer != previous.__glFramebuffer) return;
+		final gles3 = __context.gles3;
+		if (gles3 != null) gles3.invalidateFramebuffer(gl.FRAMEBUFFER, __discardDepthStencil);
+		#end
+	}
+
 	@:noCompletion private function __flushGLFramebuffer():Void
 	{
 		if (__state.renderToTexture != null)
@@ -2308,6 +2346,7 @@ import lime.math.Vector2;
 			if (#if openfl_disable_context_cache true #else __contextState.renderToTexture != __state.renderToTexture
 				|| __contextState.renderToTextureSurfaceSelector != __state.renderToTextureSurfaceSelector #end)
 			{
+				__releaseDepthStencil();
 				var framebuffer = __state.renderToTexture.__getGLFramebuffer(__state.renderToTextureDepthStencil, __state.renderToTextureAntiAlias,
 					__state.renderToTextureSurfaceSelector);
 				__bindGLFramebuffer(framebuffer);
@@ -2335,6 +2374,7 @@ import lime.math.Vector2;
 				|| __contextState.backBufferEnableDepthAndStencil != __state.backBufferEnableDepthAndStencil #end
 			)
 			{
+				__releaseDepthStencil();
 				__bindGLFramebuffer(__state.__primaryGLFramebuffer);
 
 				__contextState.renderToTexture = null;

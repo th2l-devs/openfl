@@ -19,6 +19,7 @@ class RenderStats
 	public static var markedDraws(default, null):Int = 0;
 	public static var markedShaderSwitches(default, null):Int = 0;
 	public static var markName:String = null;
+	public static var targetTrace:Array<String> = null;
 	@:noCompletion private static var __markDraws:Int = -1;
 	@:noCompletion private static var __markShaders:Int = -1;
 
