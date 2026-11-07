@@ -1,5 +1,7 @@
 package openfl.display;
 
+#if FREAK_DEVTOOLS
+
 import openfl.display3D.Context3D;
 
 class RenderPassRecord
@@ -152,3 +154,4 @@ class RenderProfiler
 		return name == null ? "?" : name.substr(name.lastIndexOf(".") + 1);
 	}
 }
+#end

@@ -2599,7 +2599,28 @@ class Stage extends DisplayObjectContainer #if lime implements IModule #end
 	{
 		if (this.window == null || this.window != window) return;
 
-		// __broadcastEvent (new Event (Event.ACTIVATE));
+		#if mobile
+		__renderDirty = true;
+		__broadcastActivation(Event.ACTIVATE);
+		#end
+	}
+
+	@:noCompletion private function __broadcastActivation(type:String):Void
+	{
+		var event:Event = null;
+
+		#if openfl_pool_events
+		event = Event.__pool.get();
+		event.type = type;
+		#else
+		event = new Event(type);
+		#end
+
+		__broadcastEvent(event);
+
+		#if openfl_pool_events
+		Event.__pool.release(event);
+		#end
 	}
 
 	@:noCompletion private function __onLimeWindowClose(window:Window):Void
@@ -2663,8 +2684,10 @@ class Stage extends DisplayObjectContainer #if lime implements IModule #end
 	{
 		if (this.window == null || this.window != window) return;
 
-		// __primaryTouch = null;
-		// __broadcastEvent (new Event (Event.DEACTIVATE));
+		#if mobile
+		__primaryTouch = null;
+		__broadcastActivation(Event.DEACTIVATE);
+		#end
 	}
 
 	@:noCompletion private function __onLimeWindowDropFile(window:Window, file:String):Void {}
@@ -2690,19 +2713,8 @@ class Stage extends DisplayObjectContainer #if lime implements IModule #end
 		__renderDirty = true;
 		#end
 
-		var event:Event = null;
-
-		#if openfl_pool_events
-		event = Event.__pool.get();
-		event.type = Event.ACTIVATE;
-		#else
-		event = new Event(Event.ACTIVATE);
-		#end
-
-		__broadcastEvent(event);
-
-		#if openfl_pool_events
-		Event.__pool.release(event);
+		#if !mobile
+		__broadcastActivation(Event.ACTIVATE);
 		#end
 
 		#if !desktop
@@ -2716,19 +2728,8 @@ class Stage extends DisplayObjectContainer #if lime implements IModule #end
 
 		__primaryTouch = null;
 
-		var event:Event = null;
-
-		#if openfl_pool_events
-		event = Event.__pool.get();
-		event.type = Event.DEACTIVATE;
-		#else
-		event = new Event(Event.DEACTIVATE);
-		#end
-
-		__broadcastEvent(event);
-
-		#if openfl_pool_events
-		Event.__pool.release(event);
+		#if !mobile
+		__broadcastActivation(Event.DEACTIVATE);
 		#end
 
 		var currentFocus = focus;

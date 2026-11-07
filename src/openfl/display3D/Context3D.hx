@@ -1259,7 +1259,9 @@ import lime.math.Vector2;
 		}
 
 		var count = (numTriangles == -1) ? indexBuffer.__numIndices : (numTriangles * 3);
+		#if FREAK_DEVTOOLS
 		if (openfl.display.RenderProfiler.capturing) openfl.display.RenderProfiler.__drawn(this, count);
+		#end
 
 		__bindGLElementArrayBuffer(indexBuffer.__id);
 		var complexBlend = __usingComplexBlend && __complexEquation != 0 && __contextState.__enableGLBlend;
@@ -2001,7 +2003,9 @@ import lime.math.Vector2;
 			gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
 			__contextState.__currentGLFramebuffer = framebuffer;
 			@:privateAccess openfl.display.RenderStats.__targetSwitches++;
+			#if FREAK_DEVTOOLS
 			if (openfl.display.RenderProfiler.capturing) openfl.display.RenderProfiler.__bound(this);
+			#end
 			final targetTrace = openfl.display.RenderStats.targetTrace;
 			if (targetTrace != null)
 			{

@@ -231,8 +231,10 @@ class NativeWindow extends EventDispatcher
 		NativeApplication.nativeApplication.__openedWindows.push(this);
 		__window.onActivate.add(window_onActivate);
 		__window.onDeactivate.add(window_onDeactivate);
+		#if !mobile
 		__window.onFocusIn.add(window_onFocusIn);
 		__window.onFocusOut.add(window_onFocusOut);
+		#end
 		__window.onMove.add(window_onMove);
 		__window.onResize.add(window_onResize);
 		__window.onMinimize.add(window_onMinimize);
