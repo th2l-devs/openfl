@@ -314,6 +314,48 @@ class DisplayObjectRenderer extends EventDispatcher
 		return __type != OPENGL && !colorTransform.__isDefault(true);
 	}
 
+	@:noCompletion private static inline var CACHE_CLIP_MARGIN:Float = 256;
+
+	@:noCompletion private function __clipCacheBounds(displayObject:DisplayObject, rect:Rectangle):Bool
+	{
+		if (__type != OPENGL || displayObject.stage == null || rect.width <= 0 || rect.height <= 0) return false;
+		var transform = displayObject.__renderTransform;
+		var ratio = __cachePixelRatio();
+		if (ratio < 1) ratio = 1;
+		var scale = displayObject.__cacheAsBitmapResolution;
+		if (displayObject.__cacheAsBitmapMatrix != null || !(scale > 0)) return false;
+		var left = (-transform.tx) * scale - CACHE_CLIP_MARGIN;
+		var top = (-transform.ty) * scale - CACHE_CLIP_MARGIN;
+		var right = (-transform.tx + displayObject.stage.stageWidth * ratio) * scale + CACHE_CLIP_MARGIN;
+		var bottom = (-transform.ty + displayObject.stage.stageHeight * ratio) * scale + CACHE_CLIP_MARGIN;
+		if (rect.x >= left && rect.y >= top && rect.right <= right && rect.bottom <= bottom) return false;
+		var x0 = Math.max(rect.x, left);
+		var y0 = Math.max(rect.y, top);
+		var x1 = Math.min(rect.right, right);
+		var y1 = Math.min(rect.bottom, bottom);
+		if (x1 <= x0 || y1 <= y0) rect.setEmpty();
+		else rect.setTo(x0, y0, x1 - x0, y1 - y0);
+		return true;
+	}
+
+	@:noCompletion private static var __maxCacheSide:Int = 0;
+
+	@:noCompletion private static inline var MAX_CACHE_PIXELS:Int = 50000000;
+
+	@:noCompletion private function __cacheTooLarge(width:Int, height:Int):Bool
+	{
+		if (__maxCacheSide == 0)
+		{
+			__maxCacheSide = 8192;
+			if (__type == OPENGL)
+			{
+				var size:Int = try lime.graphics.opengl.GL.getParameter(lime.graphics.opengl.GL.MAX_TEXTURE_SIZE) catch (e:Dynamic) 0;
+				if (size > 0) __maxCacheSide = size > 16384 ? 16384 : size;
+			}
+		}
+		return width > __maxCacheSide || height > __maxCacheSide || (width : Float) * height > MAX_CACHE_PIXELS;
+	}
+
 	@:noCompletion private function __renderCacheBitmap(displayObject:DisplayObject, force:Bool, colorTransform:ColorTransform):Bool
 	{
 		var needRender = displayObject.__cacheBitmap == null
@@ -360,8 +402,20 @@ class DisplayObjectRenderer extends EventDispatcher
 
 		if (updateTransform || needRender)
 		{
+			#if lime
+			openfl.display._internal.QuadBatcher.sync();
+			#end
 			var rect = Rectangle.__pool.get();
 			displayObject.__getFilterBounds(rect, displayObject.__cacheBitmapMatrix);
+			var clipped = __clipCacheBounds(displayObject, rect);
+			if (clipped || displayObject.__cacheClipped)
+			{
+				var last = displayObject.__cacheClipRect;
+				if (last == null || !last.equals(rect) || clipped != displayObject.__cacheClipped) needRender = true;
+				if (last == null) displayObject.__cacheClipRect = last = new Rectangle();
+				last.copyFrom(rect);
+			}
+			displayObject.__cacheClipped = clipped;
 
 			filterWidth = rect.width > 0 ? Math.ceil((rect.width + 1) * pixelRatio) : 0;
 			filterHeight = rect.height > 0 ? Math.ceil((rect.height + 1) * pixelRatio) : 0;
@@ -369,6 +423,12 @@ class DisplayObjectRenderer extends EventDispatcher
 			offsetY = rect.y > 0 ? Math.ceil(rect.y) : Math.floor(rect.y);
 
 			Rectangle.__pool.release(rect);
+
+			if (__cacheTooLarge(filterWidth, filterHeight))
+			{
+				if (displayObject.__cacheBitmap != null) __clearCacheBitmap(displayObject);
+				return true;
+			}
 
 			var current = displayObject.__cacheBitmapData;
 			if (current == null || exactSize)

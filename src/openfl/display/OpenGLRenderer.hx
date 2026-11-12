@@ -419,6 +419,7 @@ class OpenGLRenderer extends DisplayObjectRenderer
 	**/
 	public function setShader(shader:Shader):Void
 	{
+		openfl.display._internal.QuadBatcher.sync();
 		__currentShaderBuffer = null;
 
 		if (__currentShader == shader) return;
@@ -453,6 +454,7 @@ class OpenGLRenderer extends DisplayObjectRenderer
 	**/
 	public function setViewport():Void
 	{
+		openfl.display._internal.QuadBatcher.sync();
 		__context3D.__setGLViewport(__offsetX, __offsetY, __displayWidth, __displayHeight);
 	}
 
@@ -501,6 +503,7 @@ class OpenGLRenderer extends DisplayObjectRenderer
 
 	@:noCompletion private function __cleanup():Void
 	{
+		openfl.display._internal.QuadBatcher.sync();
 		if (__stencilReference > 0)
 		{
 			__stencilReference = 0;
@@ -517,6 +520,7 @@ class OpenGLRenderer extends DisplayObjectRenderer
 
 	@:noCompletion private override function __clear():Void
 	{
+		openfl.display._internal.QuadBatcher.sync();
 		if (__stage == null || __stage.__transparent)
 		{
 			__context3D.clear(0, 0, 0, 0, 0, 0, Context3DClearMask.COLOR);
@@ -553,6 +557,7 @@ class OpenGLRenderer extends DisplayObjectRenderer
 
 	@:noCompletion private function __copyShader(other:OpenGLRenderer):Void
 	{
+		openfl.display._internal.QuadBatcher.sync();
 		__currentShader = other.__currentShader;
 		__currentShaderBuffer = other.__currentShaderBuffer;
 		__currentDisplayShader = other.__currentDisplayShader;
@@ -657,6 +662,7 @@ class OpenGLRenderer extends DisplayObjectRenderer
 
 	@:noCompletion private override function __popMask():Void
 	{
+		openfl.display._internal.QuadBatcher.sync();
 		if (__stencilReference == 0) return;
 
 		var mask = __maskObjects.pop();
@@ -705,6 +711,7 @@ class OpenGLRenderer extends DisplayObjectRenderer
 
 	@:noCompletion private override function __popMaskRect():Void
 	{
+		openfl.display._internal.QuadBatcher.sync();
 		if (__numClipRects > 0)
 		{
 			__numClipRects--;
@@ -722,6 +729,7 @@ class OpenGLRenderer extends DisplayObjectRenderer
 
 	@:noCompletion private override function __pushMask(mask:DisplayObject):Void
 	{
+		openfl.display._internal.QuadBatcher.sync();
 		if (__stencilReference == 0)
 		{
 			__context3D.clear(0, 0, 0, 0, 0, 0, Context3DClearMask.STENCIL);
@@ -768,6 +776,7 @@ class OpenGLRenderer extends DisplayObjectRenderer
 
 	@:noCompletion private override function __pushMaskRect(rect:Rectangle, transform:Matrix):Void
 	{
+		openfl.display._internal.QuadBatcher.sync();
 		// TODO: Handle rotation?
 
 		if (__numClipRects == __clipRects.length)
@@ -806,6 +815,7 @@ class OpenGLRenderer extends DisplayObjectRenderer
 
 	@:noCompletion private override function __render(object:IBitmapDrawable):Void
 	{
+		openfl.display._internal.QuadBatcher.sync();
 		__context3D.setColorMask(true, true, true, true);
 		__context3D.setCulling(NONE);
 		__context3D.setDepthTest(false, ALWAYS);
@@ -835,6 +845,7 @@ class OpenGLRenderer extends DisplayObjectRenderer
 			__upscaled = (__worldTransform.a != 1 || __worldTransform.d != 1);
 
 			__renderDrawable(object);
+			openfl.display._internal.QuadBatcher.sync();
 
 			// TODO: Handle this in Context3D as a viewport?
 
@@ -934,6 +945,7 @@ class OpenGLRenderer extends DisplayObjectRenderer
 
 	@:noCompletion private function __renderFilterPass(source:BitmapData, shader:Shader, smooth:Bool, clear:Bool = true):Void
 	{
+		openfl.display._internal.QuadBatcher.sync();
 		if (source == null || shader == null) return;
 		if (__defaultRenderTarget == null) return;
 
@@ -988,6 +1000,7 @@ class OpenGLRenderer extends DisplayObjectRenderer
 	**/
 	@:noCompletion private function __captureBackdrop(bitmapData:BitmapData, renderX:Float, renderY:Float):BitmapData
 	{
+		openfl.display._internal.QuadBatcher.sync();
 		#if lime
 		var width = bitmapData.width;
 		var height = bitmapData.height;
@@ -1051,6 +1064,7 @@ class OpenGLRenderer extends DisplayObjectRenderer
 
 	@:noCompletion private override function __resize(width:Int, height:Int):Void
 	{
+		openfl.display._internal.QuadBatcher.sync();
 		__width = width;
 		__height = height;
 
@@ -1065,6 +1079,7 @@ class OpenGLRenderer extends DisplayObjectRenderer
 
 	@:noCompletion private function __resumeClipAndMask(childRenderer:OpenGLRenderer):Void
 	{
+		openfl.display._internal.QuadBatcher.sync();
 		if (__stencilReference > 0)
 		{
 			__context3D.setStencilActions(FRONT_AND_BACK, EQUAL, KEEP, KEEP, KEEP);
@@ -1088,6 +1103,7 @@ class OpenGLRenderer extends DisplayObjectRenderer
 
 	@:noCompletion private function __scissorRect(clipRect:Rectangle = null):Void
 	{
+		openfl.display._internal.QuadBatcher.sync();
 		if (clipRect != null)
 		{
 			var x = Math.ffloor(clipRect.x);
@@ -1129,6 +1145,7 @@ class OpenGLRenderer extends DisplayObjectRenderer
 
 	@:noCompletion private override function __setBlendMode(value:BlendMode):Void
 	{
+		openfl.display._internal.QuadBatcher.sync();
 		if (__overrideBlendMode != null) value = __overrideBlendMode;
 		if (__blendMode == value && !__complexBlendsSupported) return;
 
@@ -1215,6 +1232,7 @@ class OpenGLRenderer extends DisplayObjectRenderer
 
 	@:noCompletion private function __setRenderTarget(renderTarget:BitmapData):Void
 	{
+		openfl.display._internal.QuadBatcher.sync();
 		__defaultRenderTarget = renderTarget;
 		__flipped = (renderTarget == null);
 
@@ -1232,6 +1250,7 @@ class OpenGLRenderer extends DisplayObjectRenderer
 
 	@:noCompletion private function __suspendClipAndMask():Void
 	{
+		openfl.display._internal.QuadBatcher.sync();
 		if (__stencilReference > 0)
 		{
 			__context3D.setStencilActions();

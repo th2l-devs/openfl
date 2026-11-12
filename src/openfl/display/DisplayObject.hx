@@ -978,6 +978,8 @@ class DisplayObject extends EventDispatcher implements IBitmapDrawable #if (open
 	@:noCompletion private var __cacheBitmapData2:BitmapData;
 	@:noCompletion private var __cacheBitmapData3:BitmapData;
 	@:noCompletion private var __cacheBitmapMatrix:Matrix;
+	@:noCompletion private var __cacheClipped:Bool = false;
+	@:noCompletion private var __cacheClipRect:Rectangle;
 	@:noCompletion private var __cacheBitmapRenderer:DisplayObjectRenderer;
 	@:noCompletion private var __cacheResolutionMatrix:Matrix;
 	@SuppressWarnings("checkstyle:Dynamic") @:noCompletion private var __cairo:#if lime Cairo #else Dynamic #end;

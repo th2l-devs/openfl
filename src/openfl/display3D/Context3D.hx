@@ -468,12 +468,14 @@ import lime.math.Vector2;
 	public function clear(red:Float = 0, green:Float = 0, blue:Float = 0, alpha:Float = 1, depth:Float = 1, stencil:UInt = 0,
 			mask:UInt = Context3DClearMask.ALL):Void
 	{
+		openfl.display._internal.QuadBatcher.sync();
 		__clear(false, red, green, blue, alpha, depth, stencil, mask);
 	}
 
 	@:noCompletion private function __clear(useScissor:Bool, red:Float = 0, green:Float = 0, blue:Float = 0, alpha:Float = 1, depth:Float = 1,
 			stencil:UInt = 0, mask:UInt = Context3DClearMask.ALL)
 	{
+		openfl.display._internal.QuadBatcher.sync();
 		__flushGLFramebuffer();
 		__flushGLViewport();
 
@@ -601,6 +603,7 @@ import lime.math.Vector2;
 	public function configureBackBuffer(width:Int, height:Int, antiAlias:Int, enableDepthAndStencil:Bool = true, wantsBestResolution:Bool = false,
 			wantsBestResolutionOnBrowserZoom:Bool = false):Void
 	{
+		openfl.display._internal.QuadBatcher.sync();
 		var pixelRatio = __stage.window.scale;
 		#if !openfl_dpi_aware
 		if (wantsBestResolution)
@@ -1065,6 +1068,7 @@ import lime.math.Vector2;
 	**/
 	public function dispose(recreate:Bool = true):Void
 	{
+		openfl.display._internal.QuadBatcher.sync();
 		// TODO: Dispose all related buffers
 
 		gl = null;
@@ -1112,6 +1116,7 @@ import lime.math.Vector2;
 	**/
 	public function drawToBitmapData(destination:BitmapData, srcRect:Rectangle = null, destPoint:Point = null):Void
 	{
+		openfl.display._internal.QuadBatcher.sync();
 		#if lime
 		if (destination == null) return;
 
@@ -1235,6 +1240,7 @@ import lime.math.Vector2;
 	**/
 	public function drawTriangles(indexBuffer:IndexBuffer3D, firstIndex:Int = 0, numTriangles:Int = -1):Void
 	{
+		openfl.display._internal.QuadBatcher.sync();
 		#if !openfl_disable_display_render
 		if (__state.renderToTexture == null)
 		{
@@ -1291,6 +1297,7 @@ import lime.math.Vector2;
 	**/
 	public function present():Void
 	{
+		openfl.display._internal.QuadBatcher.sync();
 		setRenderToBackBuffer();
 
 		if (__stage3D != null && __backBufferTexture != null)
@@ -1348,6 +1355,7 @@ import lime.math.Vector2;
 	**/
 	public function setBlendFactors(sourceFactor:Context3DBlendFactor, destinationFactor:Context3DBlendFactor):Void
 	{
+		openfl.display._internal.QuadBatcher.sync();
 		setBlendFactorsSeparate(sourceFactor, destinationFactor, sourceFactor, destinationFactor);
 	}
 
@@ -1379,6 +1387,7 @@ import lime.math.Vector2;
 	**/
 	public function setColorMask(red:Bool, green:Bool, blue:Bool, alpha:Bool):Void
 	{
+		openfl.display._internal.QuadBatcher.sync();
 		__state.colorMaskRed = red;
 		__state.colorMaskGreen = green;
 		__state.colorMaskBlue = blue;
@@ -1400,6 +1409,7 @@ import lime.math.Vector2;
 	**/
 	public function setCulling(triangleFaceToCull:Context3DTriangleFace):Void
 	{
+		openfl.display._internal.QuadBatcher.sync();
 		__state.culling = triangleFaceToCull;
 	}
 
@@ -1425,6 +1435,7 @@ import lime.math.Vector2;
 	**/
 	public function setDepthTest(depthMask:Bool, passCompareMode:Context3DCompareMode):Void
 	{
+		openfl.display._internal.QuadBatcher.sync();
 		__state.depthMask = depthMask;
 		__state.depthCompareMode = passCompareMode;
 	}
@@ -1437,6 +1448,7 @@ import lime.math.Vector2;
 	**/
 	public function setProgram(program:Program3D):Void
 	{
+		openfl.display._internal.QuadBatcher.sync();
 		__state.program = program;
 		__state.shader = null; // TODO: Merge this logic
 
@@ -1477,6 +1489,7 @@ import lime.math.Vector2;
 	public function setProgramConstantsFromByteArray(programType:Context3DProgramType, firstRegister:Int, numRegisters:Int, data:ByteArray,
 			byteArrayOffset:UInt):Void
 	{
+		openfl.display._internal.QuadBatcher.sync();
 		#if lime
 		if (numRegisters == 0 || __state.program == null) return;
 
@@ -1535,6 +1548,7 @@ import lime.math.Vector2;
 	**/
 	public function setProgramConstantsFromMatrix(programType:Context3DProgramType, firstRegister:Int, matrix:Matrix3D, transposedMatrix:Bool = false):Void
 	{
+		openfl.display._internal.QuadBatcher.sync();
 		#if lime
 		if (__state.program != null && __state.program.__format == GLSL)
 		{
@@ -1634,6 +1648,7 @@ import lime.math.Vector2;
 	**/
 	public function setProgramConstantsFromVector(programType:Context3DProgramType, firstRegister:Int, data:Vector<Float>, numRegisters:Int = -1):Void
 	{
+		openfl.display._internal.QuadBatcher.sync();
 		if (numRegisters == 0) return;
 
 		if (__state.program != null && __state.program.__format == GLSL) {}
@@ -1674,6 +1689,7 @@ import lime.math.Vector2;
 	**/
 	public function setRenderToBackBuffer():Void
 	{
+		openfl.display._internal.QuadBatcher.sync();
 		__state.renderToTexture = null;
 	}
 
@@ -1715,6 +1731,7 @@ import lime.math.Vector2;
 	**/
 	public function setRenderToTexture(texture:TextureBase, enableDepthAndStencil:Bool = false, antiAlias:Int = 0, surfaceSelector:Int = 0):Void
 	{
+		openfl.display._internal.QuadBatcher.sync();
 		__state.renderToTexture = texture;
 		__state.renderToTextureDepthStencil = enableDepthAndStencil;
 		__state.renderToTextureAntiAlias = antiAlias;
@@ -1743,6 +1760,7 @@ import lime.math.Vector2;
 	**/
 	public function setSamplerStateAt(sampler:Int, wrap:Context3DWrapMode, filter:Context3DTextureFilter, mipfilter:Context3DMipFilter):Void
 	{
+		openfl.display._internal.QuadBatcher.sync();
 		// if (sampler < 0 || sampler > Context3D.MAX_SAMPLERS) {
 
 		// 	throw new Error ("sampler out of range");
@@ -1774,6 +1792,7 @@ import lime.math.Vector2;
 	**/
 	public function setScissorRectangle(rectangle:Rectangle):Void
 	{
+		openfl.display._internal.QuadBatcher.sync();
 		if (rectangle != null)
 		{
 			__state.scissorEnabled = true;
@@ -1833,6 +1852,7 @@ import lime.math.Vector2;
 			actionOnBothPass:Context3DStencilAction = KEEP, actionOnDepthFail:Context3DStencilAction = KEEP,
 			actionOnDepthPassStencilFail:Context3DStencilAction = KEEP):Void
 	{
+		openfl.display._internal.QuadBatcher.sync();
 		__state.stencilTriangleFace = triangleFace;
 		__state.stencilCompareMode = compareMode;
 		__state.stencilPass = actionOnBothPass;
@@ -1856,6 +1876,7 @@ import lime.math.Vector2;
 	**/
 	public function setStencilReferenceValue(referenceValue:UInt, readMask:UInt = 0xFF, writeMask:UInt = 0xFF):Void
 	{
+		openfl.display._internal.QuadBatcher.sync();
 		__state.stencilReferenceValue = referenceValue;
 		__state.stencilReadMask = readMask;
 		__state.stencilWriteMask = writeMask;
@@ -1881,6 +1902,7 @@ import lime.math.Vector2;
 	**/
 	public function setTextureAt(sampler:Int, texture:TextureBase):Void
 	{
+		openfl.display._internal.QuadBatcher.sync();
 		// if (sampler < 0 || sampler > Context3D.MAX_SAMPLERS) {
 
 		// 	throw new Error ("sampler out of range");
@@ -1942,6 +1964,7 @@ import lime.math.Vector2;
 	**/
 	public function setVertexBufferAt(index:Int, buffer:VertexBuffer3D, bufferOffset:Int = 0, format:Context3DVertexBufferFormat = FLOAT_4):Void
 	{
+		openfl.display._internal.QuadBatcher.sync();
 		if (index < 0) return;
 
 		if (buffer == null)
@@ -2108,6 +2131,7 @@ import lime.math.Vector2;
 
 	@:noCompletion private function __setGLViewport(x:Int, y:Int, width:Int, height:Int):Void
 	{
+		openfl.display._internal.QuadBatcher.sync();
 		var state = __contextState;
 		if (#if openfl_disable_context_cache true #else state.__currentGLViewportX != x || state.__currentGLViewportY != y
 			|| state.__currentGLViewportWidth != width || state.__currentGLViewportHeight != height #end)
@@ -2157,6 +2181,7 @@ import lime.math.Vector2;
 
 	@:noCompletion private function __drawTriangles(firstIndex:Int = 0, count:Int):Void
 	{
+		openfl.display._internal.QuadBatcher.sync();
 		#if !openfl_disable_display_render
 		if (__state.renderToTexture == null)
 		{
@@ -2394,6 +2419,7 @@ import lime.math.Vector2;
 
 	@:noCompletion private function __flushGLProgram():Void
 	{
+		openfl.display._internal.QuadBatcher.sync();
 		var shader = __state.shader;
 		var program = __state.program;
 
@@ -2518,6 +2544,7 @@ import lime.math.Vector2;
 
 	@:noCompletion private function __flushGLTextures():Void
 	{
+		openfl.display._internal.QuadBatcher.sync();
 		var sampler = 0;
 		var texture:TextureBase;
 		var samplerState:SamplerState;

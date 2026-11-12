@@ -182,7 +182,7 @@ class InstancedTilePass
 	private static var __writePosition:Int;
 	private static var __currentBitmapData:BitmapData;
 	private static var __currentBlendMode:BlendMode;
-	private static var __cacheColorTransform:ColorTransform;
+	private static var __cacheColorTransforms:Array<ColorTransform> = [];
 	private static var __supported:Null<Bool>;
 
 	/**
@@ -216,6 +216,7 @@ class InstancedTilePass
 	public static function renderDrawable(tilemap:Tilemap, device:GLDevice):Bool
 	{
 		#if (lime && openfl_instanced_tiles)
+		QuadBatcher.sync();
 		var renderer = device.renderer;
 
 		renderer.__updateCacheBitmap(tilemap, false);
@@ -272,7 +273,8 @@ class InstancedTilePass
 
 		gl.uniformMatrix4fv(__uMatrix, false, __matrixValue);
 		gl.uniform1i(__uTexture, 0);
-		gl.uniform1i(__uHasColorTransform, tilemap.tileColorTransformEnabled ? 1 : 0);
+		gl.uniform1i(__uHasColorTransform,
+			(tilemap.tileColorTransformEnabled || (tilemap.__worldColorTransform != null && !tilemap.__worldColorTransform.__isDefault(true))) ? 1 : 0);
 
 		__bindQuad(context, gl2, gl);
 
@@ -281,7 +283,7 @@ class InstancedTilePass
 		var parentTransform = Matrix.__pool.get();
 
 		__buildContainer(tilemap, tilemap.__group, device, gl2, parentTransform, tilemap.__tileset, tilemap.__worldAlpha,
-			tilemap.tileColorTransformEnabled, tilemap.__worldColorTransform, tilemap.tileBlendModeEnabled, __currentBlendMode, rect);
+			tilemap.tileColorTransformEnabled, tilemap.__worldColorTransform, tilemap.tileBlendModeEnabled, __currentBlendMode, rect, 0);
 
 		__flush(tilemap, device, gl2, gl);
 
@@ -415,7 +417,7 @@ class InstancedTilePass
 
 	private static function __buildContainer(tilemap:Tilemap, group:TileContainer, device:GLDevice, gl2:WebGL2RenderContext, parentTransform:Matrix,
 			defaultTileset:Tileset, worldAlpha:Float, colorTransformEnabled:Bool, defaultColorTransform:ColorTransform, blendModeEnabled:Bool,
-			defaultBlendMode:BlendMode, rect:Rectangle):Void
+			defaultBlendMode:BlendMode, rect:Rectangle, depth:Int):Void
 	{
 		var renderer = device.renderer;
 		var tileTransform = Matrix.__pool.get();
@@ -423,7 +425,7 @@ class InstancedTilePass
 
 		var tileset:Tileset;
 		var alpha:Float;
-		var colorTransform:ColorTransform = null;
+		var colorTransform:ColorTransform = defaultColorTransform;
 		var blendMode:BlendMode = defaultBlendMode;
 		var tileData:TileData;
 		var tileRect:Rectangle;
@@ -443,18 +445,18 @@ class InstancedTilePass
 
 			tileset = tile.tileset != null ? tile.tileset : defaultTileset;
 
-			alpha = tile.alpha * worldAlpha;
+			alpha = tilemap.tileAlphaEnabled ? tile.alpha * worldAlpha : tilemap.__worldAlpha;
 			tile.__dirty = false;
 
 			if (!tile.visible || alpha <= 0) continue;
 
-			if (colorTransformEnabled) colorTransform = __combineColorTransform(defaultColorTransform, tile.colorTransform);
+			if (colorTransformEnabled) colorTransform = __combineColorTransform(defaultColorTransform, tile.colorTransform, depth);
 			if (blendModeEnabled) blendMode = (tile.__blendMode != null) ? tile.__blendMode : defaultBlendMode;
 
 			if (tile.__length > 0)
 			{
 				__buildContainer(tilemap, cast tile, device, gl2, tileTransform, tileset, alpha, colorTransformEnabled, colorTransform, blendModeEnabled,
-					blendMode, rect);
+					blendMode, rect, depth + 1);
 				continue;
 			}
 
@@ -514,14 +516,14 @@ class InstancedTilePass
 			data[offset + 4] = tileTransform.tx;
 			data[offset + 5] = tileTransform.ty;
 			data[offset + 6] = 0;
-			data[offset + 7] = tilemap.tileAlphaEnabled ? alpha : 1;
+			data[offset + 7] = alpha;
 
 			data[offset + 8] = uvX;
 			data[offset + 9] = uvY;
 			data[offset + 10] = uvWidth;
 			data[offset + 11] = uvHeight;
 
-			if (colorTransformEnabled && colorTransform != null)
+			if (colorTransform != null)
 			{
 				data[offset + 12] = colorTransform.redMultiplier;
 				data[offset + 13] = colorTransform.greenMultiplier;
@@ -554,14 +556,15 @@ class InstancedTilePass
 		Matrix.__pool.release(tileTransform);
 	}
 
-	private static function __combineColorTransform(parent:ColorTransform, tile:ColorTransform):ColorTransform
+	private static function __combineColorTransform(parent:ColorTransform, tile:ColorTransform, depth:Int):ColorTransform
 	{
 		if (tile == null) return parent;
 		if (parent == null) return tile;
 
-		if (__cacheColorTransform == null) __cacheColorTransform = new ColorTransform();
+		while (__cacheColorTransforms.length <= depth)
+			__cacheColorTransforms.push(new ColorTransform());
 
-		var result = __cacheColorTransform;
+		var result = __cacheColorTransforms[depth];
 		result.redMultiplier = parent.redMultiplier * tile.redMultiplier;
 		result.greenMultiplier = parent.greenMultiplier * tile.greenMultiplier;
 		result.blueMultiplier = parent.blueMultiplier * tile.blueMultiplier;
@@ -585,6 +588,7 @@ class InstancedTilePass
 
 		if (__instanceBuffer == null || __instanceBuffer.__numVertices < __instanceCapacity)
 		{
+			if (__instanceBuffer != null) __instanceBuffer.dispose();
 			__instanceBuffer = context.createVertexBuffer(__instanceCapacity, FLOATS_PER_INSTANCE, DYNAMIC_DRAW);
 		}
 

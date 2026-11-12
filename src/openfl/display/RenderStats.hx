@@ -19,6 +19,7 @@ class RenderStats
 	public static var markedDraws(default, null):Int = 0;
 	public static var markedShaderSwitches(default, null):Int = 0;
 	public static var markName:String = null;
+	public static var batchedQuads(default, null):Int = 0;
 	public static var targetTrace:Array<String> = null;
 	@:noCompletion private static var __markDraws:Int = -1;
 	@:noCompletion private static var __markShaders:Int = -1;
@@ -31,6 +32,7 @@ class RenderStats
 	}
 
 	@:noCompletion private static var __drawCalls:Int = 0;
+	@:noCompletion private static var __batchedQuads:Int = 0;
 	@:noCompletion private static var __textureBinds:Int = 0;
 	@:noCompletion private static var __textureBindsSaved:Int = 0;
 	@:noCompletion private static var __shaderSwitches:Int = 0;
@@ -43,6 +45,8 @@ class RenderStats
 	@:noCompletion private static function __endFrame():Void
 	{
 		drawCalls = __drawCalls;
+		batchedQuads = __batchedQuads;
+		__batchedQuads = 0;
 		textureBinds = __textureBinds;
 		textureBindsSaved = __textureBindsSaved;
 		shaderSwitches = __shaderSwitches;

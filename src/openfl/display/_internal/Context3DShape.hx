@@ -32,6 +32,7 @@ class Context3DShape
 
 		if (graphics != null)
 		{
+			if (QuadBatcher.pushShape(shape, renderer)) return;
 			renderer.__setBlendMode(shape.__worldBlendMode);
 			renderer.__pushMaskObject(shape);
 			// renderer.filterManager.pushObject (shape);

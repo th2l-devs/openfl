@@ -31,6 +31,7 @@ class Context3DBitmap
 		if (bitmap.__bitmapData != null && bitmap.__bitmapData.__isValid)
 		{
 			if (BlendModeSupport.needsBackdrop(bitmap.__worldBlendMode) && renderBlended(bitmap, renderer)) return;
+			if (QuadBatcher.pushBitmap(bitmap, renderer)) return;
 
 			var context = renderer.__context3D;
 

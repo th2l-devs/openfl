@@ -539,7 +539,7 @@ class Context3DGraphics
 					var transformABCD = false, transformXY = false;
 
 					var length = hasIndices ? indices.length : Math.floor(rects.length / 4);
-					if (length == 0) return;
+					if (length == 0) continue;
 
 					if (transforms != null)
 					{
@@ -632,6 +632,9 @@ class Context3DGraphics
 
 						if (tileWidth <= 0 || tileHeight <= 0)
 						{
+							vertexOffset = (quadBufferPosition + i) * stride;
+							for (z in 0...stride)
+								vertexBufferData[vertexOffset + z] = 0;
 							continue;
 						}
 
@@ -1061,9 +1064,11 @@ class Context3DGraphics
 			if (bounds != null && width >= 1 && height >= 1)
 			{
 				if (graphics.__hardwareDirty
+					|| graphics.__hardwareStale
 					|| (graphics.__quadBuffer == null && graphics.__vertexBuffer == null && graphics.__vertexBufferUVT == null))
 				{
 					buildBuffer(graphics, renderer);
+					graphics.__hardwareStale = false;
 				}
 
 				var scale9Grid:Rectangle = graphics.__owner.__scale9Grid;
@@ -1325,6 +1330,7 @@ class Context3DGraphics
 								}
 
 								var end = quadBufferPosition + length;
+								if (graphics.__quadBuffer == null) end = quadBufferPosition;
 
 								while (quadBufferPosition < end)
 								{

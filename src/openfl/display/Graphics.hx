@@ -69,6 +69,7 @@ import js.html.CanvasRenderingContext2D;
 	@:noCompletion private var __hardwareCompatibilityKnown:Bool = false;
 	@:noCompletion private var __hardwareCommands:DrawCommandBuffer;
 	@:noCompletion private var __hardwareDirty:Bool;
+	@:noCompletion private var __hardwareStale:Bool;
 	@:noCompletion private var __height:Int;
 	@:noCompletion private var __managed:Bool;
 	@:noCompletion private var __positionX:Float;
@@ -2112,6 +2113,7 @@ import js.html.CanvasRenderingContext2D;
 		{
 			__softwareDirty = true;
 			__hardwareDirty = true;
+			__hardwareStale = true;
 			__hardwareCompatible = false;
 			__hardwareCompatibilityKnown = false;
 			__hardwareCommands = null;

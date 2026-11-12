@@ -366,7 +366,8 @@ import lime.utils.Int16Array;
 
 		var buffer = __sound.__buffer;
 		if (buffer == null) return;
-		if (buffer.data == null || buffer.data.length == 0)
+		var data = __samplesOf(buffer);
+		if (data == null)
 		{
 			__updateLevelsFromEnvelope(buffer);
 			return;
@@ -397,7 +398,6 @@ import lime.utils.Int16Array;
 		var continuous = (__peakTime >= 0 && elapsed > 0 && elapsed < LEVEL_RESET_MS);
 		__peakTime = time;
 
-		var data = buffer.data;
 		var bytesPerSample = bitsPerSample >> 3;
 		var frameSize = bytesPerSample * channels;
 		var totalFrames = Std.int(data.length / frameSize);
@@ -475,6 +475,13 @@ import lime.utils.Int16Array;
 	}
 
 	#if lime
+	@:noCompletion private function __samplesOf(buffer:lime.media.AudioBuffer):lime.utils.UInt8Array
+	{
+		if (buffer.data != null && buffer.data.length > 0) return buffer.data;
+		var analysis = __sound.__analysisData;
+		return analysis != null && analysis.length > 0 ? analysis : null;
+	}
+
 	@:noCompletion private function __updateLevelsFromEnvelope(buffer:lime.media.AudioBuffer):Void
 	{
 		var env:haxe.io.Bytes = @:privateAccess buffer.__srcEnvelope;
@@ -558,7 +565,8 @@ import lime.utils.Int16Array;
 		if (!__isValid || __sound == null) return __zeroSpectrum(bands);
 
 		var buffer = __sound.__buffer;
-		if (buffer == null || buffer.data == null || buffer.data.length == 0) return __zeroSpectrum(bands);
+		var data = buffer == null ? null : __samplesOf(buffer);
+		if (data == null) return __zeroSpectrum(bands);
 
 		var sampleRate = buffer.sampleRate;
 		var channels = buffer.channels;
@@ -579,7 +587,6 @@ import lime.utils.Int16Array;
 		if (__spectrum != null && bands == __spectrumBands && time == __spectrumTime)
 			return __spectrum;
 
-		var data = buffer.data;
 		var bytesPerSample = bitsPerSample >> 3;
 		var frameSize = bytesPerSample * channels;
 		var totalFrames = Std.int(data.length / frameSize);

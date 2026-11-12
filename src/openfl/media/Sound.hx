@@ -249,6 +249,9 @@ class Sound extends EventDispatcher
 	@:noCompletion private var __pendingSoundChannel:SoundChannel;
 	@:noCompletion private var __pendingAudioSource:AudioSource;
 	@:noCompletion private var __buffer:AudioBuffer;
+	#if lime
+	@:noCompletion private var __analysisData:lime.utils.UInt8Array;
+	#end
 	#end
 
 	#if (js && html5)
@@ -348,6 +351,7 @@ class Sound extends EventDispatcher
 			__buffer.dispose();
 			__buffer = null;
 		}
+		__analysisData = null;
 		#end
 	}
 
