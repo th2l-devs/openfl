@@ -801,6 +801,9 @@ class BitmapData implements IBitmapDrawable
 
 		if (!__hasSharedTexture && __texture != null)
 		{
+			#if lime
+			openfl.display._internal.QuadBatcher.sync();
+			#end
 			__texture.dispose();
 		}
 
@@ -2353,8 +2356,6 @@ class BitmapData implements IBitmapDrawable
 			image = null;
 		}
 		#end
-
-		__hasSharedTexture = true;
 
 		return __texture;
 	}

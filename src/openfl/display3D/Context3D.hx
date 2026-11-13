@@ -773,7 +773,10 @@ import lime.math.Vector2;
 	**/
 	public function createCubeTexture(size:Int, format:Context3DTextureFormat, optimizeForRenderToTexture:Bool, streamingLevels:Int = 0):CubeTexture
 	{
-		return new CubeTexture(this, size, format, optimizeForRenderToTexture, streamingLevels);
+		var texture = new CubeTexture(this, size, format, optimizeForRenderToTexture, streamingLevels);
+		@:privateAccess texture.__trackedFaces = 6;
+		@:privateAccess texture.__track();
+		return texture;
 	}
 
 	/**
@@ -880,7 +883,9 @@ import lime.math.Vector2;
 	**/
 	public function createRectangleTexture(width:Int, height:Int, format:Context3DTextureFormat, optimizeForRenderToTexture:Bool):RectangleTexture
 	{
-		return new RectangleTexture(this, width, height, format, optimizeForRenderToTexture);
+		var texture = new RectangleTexture(this, width, height, format, optimizeForRenderToTexture);
+		@:privateAccess texture.__track();
+		return texture;
 	}
 
 	/**
@@ -956,7 +961,9 @@ import lime.math.Vector2;
 	**/
 	public function createTexture(width:Int, height:Int, format:Context3DTextureFormat, optimizeForRenderToTexture:Bool, streamingLevels:Int = 0):Texture
 	{
-		return new Texture(this, width, height, format, optimizeForRenderToTexture, streamingLevels);
+		var texture = new Texture(this, width, height, format, optimizeForRenderToTexture, streamingLevels);
+		@:privateAccess texture.__track();
+		return texture;
 	}
 
 	/**
@@ -2346,7 +2353,7 @@ import lime.math.Vector2;
 		if (cache == null || index < 0 || index > 4095) return true;
 		final i = index * 4;
 		while (cache.length < i + 4)
-			cache.push(0);
+			cache.push(Math.NaN);
 		if (cache[i] == a && cache[i + 1] == b && cache[i + 2] == c && cache[i + 3] == d) return false;
 		cache[i] = a;
 		cache[i + 1] = b;

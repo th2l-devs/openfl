@@ -88,7 +88,7 @@ class GLProgramCache
 			final out = Bytes.alloc(data.length + 4);
 			out.setInt32(0, format);
 			out.blit(4, data, 0, data.length);
-			DiskCache.put(KIND, keyOf(vertex, fragment), out);
+			DiskCache.putAsync(KIND, keyOf(vertex, fragment), out);
 		}
 		catch (_:Dynamic) {}
 	}

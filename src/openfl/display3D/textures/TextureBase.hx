@@ -37,6 +37,11 @@ class TextureBase extends EventDispatcher
 	@:noCompletion private static var __supportsBGRA:Null<Bool> = null;
 	@:noCompletion private static var __textureFormat:Int;
 	@:noCompletion private static var __textureInternalFormat:Int;
+	@:noCompletion public static var liveBytes(default, null):Float = 0;
+	@:noCompletion public static var liveCount(default, null):Int = 0;
+	@:noCompletion private var __trackedBytes:Float = 0;
+	@:noCompletion private var __trackedFaces:Int = 1;
+	@:noCompletion public static var liveSizes:Map<String, Int> = new Map();
 
 	@:noCompletion private var __alphaTexture:TextureBase;
 	// private var __compressedMemoryUsage:Int;
@@ -98,6 +103,7 @@ class TextureBase extends EventDispatcher
 			gl.deleteTexture(__textureID);
 			__textureID = null;
 		}
+		__track();
 
 		if (__glFramebuffer != null)
 		{
@@ -285,6 +291,28 @@ class TextureBase extends EventDispatcher
 		if (__mipComplete == complete) return;
 		__mipComplete = complete;
 		__samplerState = null;
+		__track();
+	}
+
+	@:noCompletion private function __track():Void
+	{
+		var bytes = __textureID == null ? 0.0 : __width * __height * 4.0 * __trackedFaces * (__mipComplete ? 4 / 3 : 1);
+		if (__trackedBytes <= 0 && bytes > 0)
+		{
+			liveCount++;
+			var key = __width + "x" + __height;
+			liveSizes.set(key, (liveSizes.exists(key) ? liveSizes.get(key) : 0) + 1);
+		}
+		else if (__trackedBytes > 0 && bytes <= 0)
+		{
+			liveCount--;
+			var key = __width + "x" + __height;
+			var n = (liveSizes.exists(key) ? liveSizes.get(key) : 0) - 1;
+			if (n > 0) liveSizes.set(key, n);
+			else liveSizes.remove(key);
+		}
+		liveBytes += bytes - __trackedBytes;
+		__trackedBytes = bytes;
 	}
 
 	@:noCompletion private function __getTexture():GLTexture
